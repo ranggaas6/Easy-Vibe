@@ -1,12 +1,13 @@
 #!/usr/bin/env fish
 # Easy-Vibe Installer untuk CachyOS + fish
 #
-# Topologi: DeepSeek -> Web MCP Bridge -> GitDesktop MCP (hub) -> gitrs-mcp + mcp-filesystem-server
+# Topologi: DeepSeek -> Web MCP Bridge (fork ranggaas6) -> GitDesktop MCP (hub) -> gitrs-mcp + mcp-filesystem-server
 #
 # Pemakaian:
 #   fish install.fish              # pasang
 #   fish install.fish --clean      # bersihkan dulu via uninstall.fish, lalu pasang
 #   fish install.fish --force      # timpa instalasi lama tanpa bertanya
+#   fish install.fish --upstream   # pakai upstream AstraxOf/web-mcp-bridge (port 8099/8098/8090)
 #
 # Layanan systemd pengguna:
 #   set -Ux EASY_VIBE_INSTALL_SERVICE 1
@@ -19,6 +20,7 @@ set -l VENV_DIR "$INSTALL_DIR/venv"
 set -l MANIFEST "$INSTALL_DIR/manifest.txt"
 set -l CLEAN 0
 set -l FORCE 0
+set -l USE_UPSTREAM 0
 
 for a in $argv
     switch $a
@@ -26,8 +28,10 @@ for a in $argv
             set CLEAN 1
         case --force
             set FORCE 1
+        case --upstream
+            set USE_UPSTREAM 1
         case -h --help
-            echo "Pemakaian: fish install.fish [--clean] [--force]"
+            echo "Pemakaian: fish install.fish [--clean] [--force] [--upstream]"
             exit 0
         case '*'
             echo "Opsi tidak dikenal: $a" >&2
@@ -57,7 +61,24 @@ function ada -a cmd
 end
 
 # ------------------------------------------------------------
-# 0. Validasi
+# 0. Pilih sumber bridge
+# ------------------------------------------------------------
+if test $USE_UPSTREAM -eq 1
+    set -l BRIDGE_REPO "https://github.com/AstraxOf/web-mcp-bridge"
+    set -l CONTROL_PORT 8099
+    set -l LAUNCHER_PORT 8098
+    set -l HUB_PORT 8090
+    set -l BRIDGE_LABEL "upstream (AstraxOf)"
+else
+    set -l BRIDGE_REPO "https://github.com/ranggaas6/web-mcp-bridge"
+    set -l CONTROL_PORT 8199
+    set -l LAUNCHER_PORT 8198
+    set -l HUB_PORT 8190
+    set -l BRIDGE_LABEL "fork (ranggaas6)"
+end
+
+# ------------------------------------------------------------
+# 1. Validasi
 # ------------------------------------------------------------
 if not test -d "$REPO_PATH/.git"
     gagal "Bukan repositori Git: $REPO_PATH"
@@ -68,7 +89,7 @@ if not command -v pacman >/dev/null 2>&1
 end
 
 # ------------------------------------------------------------
-# 0a. Bersihkan instalasi lama bila diminta atau terdeteksi
+# 1a. Bersihkan instalasi lama bila diminta atau terdeteksi
 # ------------------------------------------------------------
 if test $CLEAN -eq 1
     langkah "Membersihkan instalasi lama"
@@ -89,9 +110,10 @@ end
 
 mkdir -p "$INSTALL_DIR"
 set -l manifest_lines "installed_at "(date -Iseconds)
+set -a manifest_lines "bridge_source "$BRIDGE_REPO
 
 # ------------------------------------------------------------
-# 1. Prasyarat dasar
+# 2. Prasyarat dasar
 # ------------------------------------------------------------
 langkah "Memasang prasyarat dasar"
 set -l paket git python python-pip go curl base-devel
@@ -100,7 +122,7 @@ or gagal "Gagal memasang paket dasar"
 ok "Paket dasar terpasang"
 
 # ------------------------------------------------------------
-# 2. gitrs-mcp
+# 3. gitrs-mcp
 # ------------------------------------------------------------
 langkah "Memasang gitrs-mcp"
 if ada gitrs-mcp
@@ -116,7 +138,7 @@ else
 end
 
 # ------------------------------------------------------------
-# 3. mcp-filesystem-server
+# 4. mcp-filesystem-server
 # ------------------------------------------------------------
 langkah "Memasang mcp-filesystem-server"
 if ada mcp-filesystem-server
@@ -136,7 +158,7 @@ else
 end
 
 # ------------------------------------------------------------
-# 4. GitDesktop (hub MCP, wajib)
+# 5. GitDesktop (hub MCP, wajib)
 # ------------------------------------------------------------
 langkah "Memasang GitDesktop (hub MCP)"
 if ada gitdesktop || ada gitdesktop-mcp
@@ -163,13 +185,19 @@ else
 end
 
 # ------------------------------------------------------------
-# 5. Web MCP Bridge dan venv
+# 6. Web MCP Bridge (fork default) dan venv
 # ------------------------------------------------------------
-langkah "Menyiapkan Web MCP Bridge"
+langkah "Menyiapkan Web MCP Bridge: $BRIDGE_LABEL"
 if test -d "$BRIDGE_DIR/.git"
+    set -l current_origin (git -C "$BRIDGE_DIR" remote get-url origin 2>/dev/null)
+    if test "$current_origin" != "$BRIDGE_REPO"
+        warn "Sumber lama: $current_origin"
+        warn "Mengganti origin ke $BRIDGE_REPO"
+        git -C "$BRIDGE_DIR" remote set-url origin "$BRIDGE_REPO"
+    end
     git -C "$BRIDGE_DIR" pull --ff-only
 else
-    git clone https://github.com/AstraxOf/web-mcp-bridge "$BRIDGE_DIR"
+    git clone "$BRIDGE_REPO" "$BRIDGE_DIR"
 end
 
 if not test -f "$BRIDGE_DIR/server/requirements.txt"
@@ -187,14 +215,14 @@ or gagal "Gagal memasang dependensi Python di venv"
 ok "Dependensi bridge terpasang di venv"
 
 # ------------------------------------------------------------
-# 6. servers.json: satu entry gitdesktop
+# 7. servers.json: satu entry gitdesktop, port sesuai sumber
 # ------------------------------------------------------------
-langkah "Menulis servers.json (satu entry: gitdesktop)"
-printf '{\n  "control_port": 8099,\n  "servers": [\n    {\n      "name": "gitdesktop",\n      "port": 8090,\n      "command": ["gitdesktop-mcp"]\n    }\n  ]\n}\n' > "$BRIDGE_DIR/server/servers.json"
+langkah "Menulis servers.json (port kontrol $CONTROL_PORT, launcher $LAUNCHER_PORT)"
+printf '{\n  "control_port": %d,\n  "launcher_port": %d,\n  "servers": [\n    {\n      "name": "gitdesktop",\n      "port": %d,\n      "command": ["gitdesktop-mcp"]\n    }\n  ]\n}\n' $CONTROL_PORT $LAUNCHER_PORT $HUB_PORT > "$BRIDGE_DIR/server/servers.json"
 ok "servers.json ditulis dengan gitdesktop sebagai hub"
 
 # ------------------------------------------------------------
-# 7. Snippet server anak
+# 8. Snippet server anak
 # ------------------------------------------------------------
 langkah "Menyiapkan snippet server anak untuk GitDesktop"
 set -l snippet_path "$INSTALL_DIR/gitdesktop-mcp-servers.json"
@@ -202,7 +230,7 @@ printf '{\n  "mcpServers": {\n    "gitrs": {\n      "command": "gitrs-mcp",\n   
 ok "Snippet ditulis ke $snippet_path"
 
 # ------------------------------------------------------------
-# 8. Launcher fish
+# 9. Launcher fish
 # ------------------------------------------------------------
 langkah "Membuat launcher"
 set -l launcher "$INSTALL_DIR/start-easy-vibe.fish"
@@ -211,7 +239,7 @@ chmod +x $launcher
 ok "Launcher: $launcher"
 
 # ------------------------------------------------------------
-# 9. Layanan (opsional)
+# 10. Layanan (opsional)
 # ------------------------------------------------------------
 if test "$EASY_VIBE_INSTALL_SERVICE" = "1"
     langkah "Memasang bridge sebagai layanan systemd pengguna"
@@ -225,17 +253,19 @@ else
 end
 
 # ------------------------------------------------------------
-# 10. Manifest untuk uninstaller
+# 11. Manifest untuk uninstaller
 # ------------------------------------------------------------
 langkah "Menulis manifest"
 printf '%s\n' $manifest_lines > "$MANIFEST"
 ok "Manifest: $MANIFEST"
 
 # ------------------------------------------------------------
-# 11. Ringkasan
+# 12. Ringkasan
 # ------------------------------------------------------------
 langkah "Selesai"
-printf '\nLangkah manual yang tersisa:\n\n'
+printf '\nSumber bridge: %s\n' $BRIDGE_LABEL
+printf 'Port kontrol: %d · launcher: %d · hub: %d\n\n' $CONTROL_PORT $LAUNCHER_PORT $HUB_PORT
+printf 'Langkah manual yang tersisa:\n\n'
 printf '1. Daftarkan server anak di GitDesktop:\n'
 printf '   - Buka GitDesktop -> Settings -> MCP\n'
 printf '   - Tempel isi %s\n\n' $snippet_path
