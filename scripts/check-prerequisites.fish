@@ -1,6 +1,6 @@
 #!/usr/bin/env fish
 # Memeriksa prasyarat Easy-Vibe di CachyOS + fish.
-# Topologi: DeepSeek -> Bridge -> GitDesktop MCP (hub) -> gitrs-mcp + mcp-filesystem-server
+# Topologi: DeepSeek -> Bridge (fork ranggaas6) -> GitDesktop MCP (hub) -> gitrs-mcp + mcp-filesystem-server
 # Pemakaian: fish scripts/check-prerequisites.fish
 
 set -g exit_code 0
@@ -114,12 +114,33 @@ set -l bridge_dir "$install_dir/web-mcp-bridge"
 set -l venv_dir "$install_dir/venv"
 set -l launcher "$install_dir/start-easy-vibe.fish"
 set -l snippet "$install_dir/gitdesktop-mcp-servers.json"
+set -l manifest "$install_dir/manifest.txt"
 
 for d in $install_dir $bridge_dir $venv_dir
     if test -d $d
         printf '[OK]   direktori ada: %s\n' $d
     else
         printf '[PERINGATAN] direktori tidak ditemukan: %s\n' $d
+    end
+end
+
+if test -d "$bridge_dir/.git"
+    set -l origin (git -C "$bridge_dir" remote get-url origin 2>/dev/null)
+    printf '[INFO] sumber bridge: %s\n' $origin
+    if string match -q -- '*ranggaas6/web-mcp-bridge*' $origin
+        printf '[OK]   bridge memakai fork ranggaas6 (sumber utama Easy-Vibe)\n'
+    else if string match -q -- '*AstraxOf/web-mcp-bridge*' $origin
+        printf '[PERINGATAN] bridge memakai upstream AstraxOf. Jalankan installer tanpa --upstream untuk beralih ke fork.\n'
+    else
+        printf '[PERINGATAN] origin bridge tidak dikenali: %s\n' $origin
+    end
+end
+
+if test -f $manifest
+    printf '[OK]   manifest ada: %s\n' $manifest
+    set -l sumber (string match -r 'bridge_source .*' (cat $manifest) | head -n 1)
+    if test -n "$sumber"
+        printf '       %s\n' $sumber
     end
 end
 
@@ -130,6 +151,21 @@ if test -f "$bridge_dir/server/servers.json"
         printf '[OK]   servers.json memakai gitdesktop sebagai hub\n'
     else
         printf '[PERINGATAN] servers.json tidak memuat entry gitdesktop. Topologi hub belum diterapkan.\n'
+    end
+    if string match -q -- '*"control_port"\s*:\s*8199*' $isi; or string match -q -- '*8199*' $isi
+        printf '[OK]   servers.json memakai port kontrol fork 8199\n'
+    else if string match -q -- '*8099*' $isi
+        printf '[INFO] servers.json memakai port kontrol upstream 8099\n'
+    end
+    if string match -q -- '*8198*' $isi
+        printf '[OK]   servers.json memakai port launcher fork 8198\n'
+    else if string match -q -- '*8098*' $isi
+        printf '[INFO] servers.json memakai port launcher upstream 8098\n'
+    end
+    if string match -q -- '*8190*' $isi
+        printf '[OK]   servers.json memakai port hub fork 8190\n'
+    else if string match -q -- '*8090*' $isi
+        printf '[INFO] servers.json memakai port hub upstream 8090\n'
     end
 else
     printf '[PERINGATAN] servers.json belum dibuat. Jalankan install.fish dulu.\n'
