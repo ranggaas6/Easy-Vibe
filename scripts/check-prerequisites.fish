@@ -1,5 +1,6 @@
 #!/usr/bin/env fish
 # Memeriksa prasyarat Easy-Vibe di CachyOS + fish.
+# Topologi: DeepSeek -> Bridge -> GitDesktop MCP (hub) -> gitrs-mcp + mcp-filesystem-server
 # Pemakaian: fish scripts/check-prerequisites.fish
 
 set -g exit_code 0
@@ -44,7 +45,7 @@ else
     set -g exit_code 1
 end
 
-if test "$SHELL" = "/usr/bin/fish" -o "$SHELL" = "/bin/fish" -o (string match -q '*fish*' -- $SHELL; and echo yes)
+if test "$SHELL" = "/usr/bin/fish" -o "$SHELL" = "/bin/fish"
     printf '[OK]   shell saat ini: %s\n' $SHELL
 else
     printf '[PERINGATAN] Shell bukan fish: %s. Installer dirancang untuk fish.\n' $SHELL
@@ -72,7 +73,22 @@ if command -v go >/dev/null 2>&1
 end
 
 echo
-echo '== Memeriksa server MCP =='
+echo '== Memeriksa GitDesktop MCP (hub) =='
+if command -v gitdesktop-mcp >/dev/null 2>&1
+    printf '[OK]   gitdesktop-mcp ditemukan: %s\n' (command -v gitdesktop-mcp)
+else
+    printf '[GAGAL] gitdesktop-mcp tidak ditemukan. GitDesktop adalah hub MCP; tanpa binary ini seluruh rantai tool gagal.\n'
+    set -g exit_code 1
+end
+
+if command -v gitdesktop >/dev/null 2>&1
+    printf '[OK]   aplikasi gitdesktop ditemukan\n'
+else
+    printf '[PERINGATAN] aplikasi gitdesktop tidak ditemukan di PATH. Mungkin terpasang via Flatpak; pastikan Settings -> MCP bisa dibuka.\n'
+end
+
+echo
+echo '== Memeriksa server anak =='
 check_command gitrs-mcp
 check_command mcp-filesystem-server
 
@@ -97,6 +113,7 @@ set -l install_dir "$HOME/.easy-vibe"
 set -l bridge_dir "$install_dir/web-mcp-bridge"
 set -l venv_dir "$install_dir/venv"
 set -l launcher "$install_dir/start-easy-vibe.fish"
+set -l snippet "$install_dir/gitdesktop-mcp-servers.json"
 
 for d in $install_dir $bridge_dir $venv_dir
     if test -d $d
@@ -108,8 +125,21 @@ end
 
 if test -f "$bridge_dir/server/servers.json"
     printf '[OK]   servers.json ada\n'
+    set -l isi (cat "$bridge_dir/server/servers.json")
+    if string match -q -- '*"gitdesktop"*' $isi
+        printf '[OK]   servers.json memakai gitdesktop sebagai hub\n'
+    else
+        printf '[PERINGATAN] servers.json tidak memuat entry gitdesktop. Topologi hub belum diterapkan.\n'
+    end
 else
     printf '[PERINGATAN] servers.json belum dibuat. Jalankan install.fish dulu.\n'
+end
+
+if test -f $snippet
+    printf '[OK]   snippet server anak ada: %s\n' $snippet
+    printf '       Pastikan isinya sudah ditempel ke Settings -> MCP di GitDesktop.\n'
+else
+    printf '[PERINGATAN] snippet server anak tidak ada: %s\n' $snippet
 end
 
 if test -x $launcher

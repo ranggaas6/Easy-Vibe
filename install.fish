@@ -1,6 +1,8 @@
 #!/usr/bin/env fish
 # Easy-Vibe Installer untuk CachyOS + fish
 #
+# Topologi: DeepSeek -> Web MCP Bridge -> GitDesktop MCP (hub) -> gitrs-mcp + mcp-filesystem-server
+#
 # Pemakaian (dari terminal fish):
 #   fish install.fish
 #
@@ -85,7 +87,34 @@ else
 end
 
 # ------------------------------------------------------------
-# 3. Web MCP Bridge dan venv
+# 3. GitDesktop (hub MCP, wajib)
+# ------------------------------------------------------------
+langkah "Memasang GitDesktop (hub MCP)"
+if ada gitdesktop || ada gitdesktop-mcp
+    ok "GitDesktop sudah terpasang"
+else
+    if ada paru
+        paru -S --needed --noconfirm gitdesktop-bin
+        or warn "paru gagal memasang gitdesktop-bin"
+    else if ada yay
+        yay -S --needed --noconfirm gitdesktop-bin
+        or warn "yay gagal memasang gitdesktop-bin"
+    else if ada flatpak
+        flatpak install -y flathub io.github.thebguy.GitDesktop
+        or warn "flatpak gagal memasang GitDesktop"
+    else
+        warn "Tidak ada paru/yay/flatpak. Pasang GitDesktop manual dari https://github.com/theBGuy/GitDesktop"
+    end
+end
+
+if ada gitdesktop-mcp
+    ok "gitdesktop-mcp tersedia di "(command -v gitdesktop-mcp)
+else
+    warn "gitdesktop-mcp belum ada di PATH. Pastikan GitDesktop terpasang dan menyediakan binary ini, lalu buka terminal baru."
+end
+
+# ------------------------------------------------------------
+# 4. Web MCP Bridge dan venv
 # ------------------------------------------------------------
 langkah "Menyiapkan Web MCP Bridge"
 if test -d "$BRIDGE_DIR/.git"
@@ -109,14 +138,23 @@ or gagal "Gagal memasang dependensi Python di venv"
 ok "Dependensi bridge terpasang di venv"
 
 # ------------------------------------------------------------
-# 4. servers.json
+# 5. servers.json: satu entry gitdesktop
 # ------------------------------------------------------------
-langkah "Menulis servers.json"
-printf '{\n  "control_port": 8099,\n  "servers": [\n    {\n      "name": "filesystem",\n      "port": 8090,\n      "command": ["mcp-filesystem-server", "%s"]\n    },\n    {\n      "name": "gitrs",\n      "port": 8091,\n      "command": ["gitrs-mcp", "--repo", "%s"]\n    }\n  ]\n}\n' "$REPO_PATH" "$REPO_PATH" > "$BRIDGE_DIR/server/servers.json"
-ok "servers.json ditulis"
+langkah "Menulis servers.json (satu entry: gitdesktop)"
+printf '{\n  "control_port": 8099,\n  "servers": [\n    {\n      "name": "gitdesktop",\n      "port": 8090,\n      "command": ["gitdesktop-mcp"]\n    }\n  ]\n}\n' > "$BRIDGE_DIR/server/servers.json"
+ok "servers.json ditulis dengan gitdesktop sebagai hub"
 
 # ------------------------------------------------------------
-# 5. Launcher fish
+# 6. Daftarkan server anak di GitDesktop
+# ------------------------------------------------------------
+langkah "Mendaftarkan server anak di GitDesktop"
+set -l snippet_path "$INSTALL_DIR/gitdesktop-mcp-servers.json"
+printf '{\n  "mcpServers": {\n    "gitrs": {\n      "command": "gitrs-mcp",\n      "args": ["--repo", "%s"]\n    },\n    "filesystem": {\n      "command": "mcp-filesystem-server",\n      "args": ["%s"]\n    }\n  }\n}\n' "$REPO_PATH" "$REPO_PATH" > $snippet_path
+ok "Snippet ditulis ke $snippet_path"
+printf 'Salin isi file di atas ke Settings -> MCP di GitDesktop agar gitrs-mcp dan mcp-filesystem-server terdaftar sebagai server anak.\n'
+
+# ------------------------------------------------------------
+# 7. Launcher fish
 # ------------------------------------------------------------
 langkah "Membuat launcher"
 set -l launcher "$INSTALL_DIR/start-easy-vibe.fish"
@@ -125,7 +163,7 @@ chmod +x $launcher
 ok "Launcher: $launcher"
 
 # ------------------------------------------------------------
-# 6. Layanan (opsional)
+# 8. Layanan (opsional)
 # ------------------------------------------------------------
 if test "$EASY_VIBE_INSTALL_SERVICE" = "1"
     langkah "Memasang bridge sebagai layanan systemd pengguna"
@@ -138,17 +176,20 @@ else
 end
 
 # ------------------------------------------------------------
-# 7. Ringkasan
+# 9. Ringkasan
 # ------------------------------------------------------------
 langkah "Selesai"
 printf '\nLangkah manual yang tersisa:\n\n'
-printf '1. Pasang ekstensi browser:\n'
+printf '1. Daftarkan server anak di GitDesktop:\n'
+printf '   - Buka GitDesktop -> Settings -> MCP\n'
+printf '   - Tempel isi %s\n\n' $snippet_path
+printf '2. Pasang ekstensi browser:\n'
 printf '   - Buka chrome://extensions (atau edge://extensions / brave://extensions)\n'
 printf '   - Aktifkan Developer mode\n'
 printf '   - Klik Load unpacked\n'
 printf '   - Pilih folder: %s\n\n' "$BRIDGE_DIR"
-printf '2. Buka https://chat.deepseek.com\n'
-printf '3. Buka panel Web MCP Bridge, klik Inject instructions\n'
-printf '4. Biarkan izin pada Ask every time\n\n'
+printf '3. Buka https://chat.deepseek.com\n'
+printf '4. Buka panel Web MCP Bridge, klik Inject instructions\n'
+printf '5. Biarkan izin pada Ask every time\n\n'
 printf 'Mulai bridge:\n  %s\n\n' $launcher
-printf 'Periksa prasyarat:\n  bash scripts/check-prerequisites.sh\n\n'
+printf 'Periksa prasyarat:\n  fish scripts/check-prerequisites.fish\n\n'

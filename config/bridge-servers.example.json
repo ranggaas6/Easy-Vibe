@@ -2,32 +2,9 @@
   "control_port": 8099,
   "servers": [
     {
-      "name": "filesystem",
+      "name": "gitdesktop",
       "port": 8090,
-      "command": [
-        "mcp-filesystem-server",
-        "C:/Users/CHANGE_ME/projects/Easy-Vibe"
-      ]
-    },
-    {
-      "name": "gitrs",
-      "port": 8091,
-      "command": [
-        "gitrs-mcp",
-        "--repo",
-        "C:/Users/CHANGE_ME/projects/Easy-Vibe"
-      ]
-    },
-    {
-      "name": "gitrs-write",
-      "port": 8092,
-      "command": [
-        "gitrs-mcp",
-        "--repo",
-        "C:/Users/CHANGE_ME/projects/Easy-Vibe",
-        "--allow-write"
-      ],
-      "disabled": true
+      "command": ["gitdesktop-mcp"]
     }
   ]
 }

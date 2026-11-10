@@ -1,19 +1,26 @@
 {
   "mcpServers": {
-    "filesystem": {
-      "command": "mcp-filesystem-server",
-      "args": ["C:/Users/CHANGE_ME/projects/Easy-Vibe"],
-      "description": "Akses baca/tulis hanya ke direktori repo. Jangan arahkan ke home atau seluruh drive."
-    },
+    "gitdesktop": {
+      "command": "gitdesktop-mcp",
+      "description": "Hub MCP. GitDesktop mengekspos tool Git/forge sendiri sekaligus meneruskan tool dari server anak yang terdaftar di dalam GitDesktop."
+    }
+  },
+  "gitdesktopChildServers": {
     "gitrs": {
       "command": "gitrs-mcp",
       "args": ["--repo", "C:/Users/CHANGE_ME/projects/Easy-Vibe"],
-      "description": "Operasi Git read-only. Aktifkan --allow-write hanya saat diperlukan."
+      "description": "Didaftarkan di Settings → MCP GitDesktop, bukan di servers.json bridge."
+    },
+    "filesystem": {
+      "command": "mcp-filesystem-server",
+      "args": ["C:/Users/CHANGE_ME/projects/Easy-Vibe"],
+      "description": "Didaftarkan di Settings → MCP GitDesktop, bukan di servers.json bridge."
     }
   },
   "notes": [
+    "Arsitektur: DeepSeek -> Web MCP Bridge -> gitdesktop-mcp (hub) -> gitrs-mcp + mcp-filesystem-server.",
+    "Bridge hanya melihat satu server: gitdesktop. Server anak dikelola oleh GitDesktop.",
     "Gunakan garis miring / pada semua path, termasuk di Windows.",
-    "Jangan menambahkan server yang tidak dipakai. Semakin sedikit server aktif, semakin kecil konteks.",
     "Aktifkan mode persetujuan untuk semua operasi tulis."
   ]
 }

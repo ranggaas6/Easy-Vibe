@@ -1,18 +1,44 @@
 # Easy-Vibe
 
-Implementasi arsitektur **vibe coding lokal** yang menghubungkan DeepSeek Web Chat ke tool MCP di komputer sendiri: membaca Git, mengedit file, dan mengelola commit.
+Implementasi arsitektur **vibe coding lokal** yang menghubungkan DeepSeek Web Chat ke tool MCP lokal lewat GitDesktop sebagai hub.
 
 > **Penting:** ini **bukan** sistem "100% lokal". AI tetap berjalan di cloud, dan prompt, potongan kode, diff, serta hasil tool dikirim ke DeepSeek. Yang lokal adalah penyimpanan, Git, dan eksekusi tool. Baca `docs/privasi.md`.
 
+## Topologi
+
+```
+DeepSeek (LLM)
+    |  internet
+    v
+Web MCP Bridge (WebSocket)
+    |  127.0.0.1
+    v
+GitDesktop MCP  <-- hub, satu-satunya entry di servers.json
+    |
+    +-- gitrs-mcp               (child, di Settings MCP GitDesktop)
+    +-- mcp-filesystem-server   (child, di Settings MCP GitDesktop)
+```
+
+Bridge hanya melihat satu server: **GitDesktop MCP**. GitDesktop meneruskan tool dari server anak yang terdaftar di dalamnya. Server anak tidak ditulis ke `servers.json` bridge.
+
 ## Komponen
 
-| Komponen | Peran |
-|---|---|
-| DeepSeek Web Chat | Analisis, perencanaan, penulisan kode (AI cloud) |
-| Web MCP Bridge | Menghubungkan chat ke MCP lokal lewat WebSocket |
-| gitrs-mcp | Status, diff, branch, staging, commit |
-| mcp-filesystem-server | Baca/tulis file di direktori repo |
-| GitDesktop | GUI manusia untuk review perubahan |
+| Komponen | Peran | Dikonfigurasi di |
+|---|---|---|
+| DeepSeek Web Chat | Analisis, perencanaan, penulisan kode (AI cloud) | Browser |
+| Web MCP Bridge | Tool signature ringkas, izin, validasi | `servers.json` bridge |
+| GitDesktop MCP | Hub: teruskan tool anak + tool Git/forge sendiri | `servers.json` bridge |
+| gitrs-mcp | Status, diff, branch, staging, commit | Settings MCP GitDesktop |
+| mcp-filesystem-server | Baca, tulis, modifikasi file | Settings MCP GitDesktop |
+| GitDesktop GUI | Review visual oleh manusia | Aplikasi desktop |
+
+## Prasyarat
+
+- Python 3.9+
+- Go 1.21+ (untuk filesystem server)
+- Git
+- GitDesktop (wajib, karena menjadi hub MCP)
+- Chrome/Edge/Brave 116+
 
 ## Instalasi CachyOS + fish
 
@@ -39,8 +65,29 @@ Installer akan:
 2. Memasang `gitrs-mcp` ke `~/.local/bin`.
 3. Memasang `mcp-filesystem-server` ke `~/go/bin` dan menambahkannya ke fish PATH dengan `fish_add_path`.
 4. Meng-clone Web MCP Bridge dan memasang dependensi Python di venv `~/.easy-vibe/venv` (menghindari blokir PEP 668).
-5. Menulis `servers.json` dengan path repo Anda.
+5. Menulis `servers.json` dengan **satu entry: gitdesktop**.
 6. Membuat launcher `~/.easy-vibe/start-easy-vibe.fish`.
+
+### Daftarkan server anak di GitDesktop
+
+Setelah installer selesai, buka **GitDesktop -> Settings -> MCP** dan tambahkan:
+
+```json
+{
+  "mcpServers": {
+    "gitrs": {
+      "command": "gitrs-mcp",
+      "args": ["--repo", "/path/ke/repo"]
+    },
+    "filesystem": {
+      "command": "mcp-filesystem-server",
+      "args": ["/path/ke/repo"]
+    }
+  }
+}
+```
+
+Ganti `/path/ke/repo` dengan path repo Anda. Gunakan selalu garis miring `/`.
 
 ### Setelah instalasi
 
@@ -60,22 +107,23 @@ Mulai bridge:
 - Jika `gitrs-mcp` atau `mcp-filesystem-server` tidak ditemukan, jalankan `fish_add_path ~/.local/bin ~/go/bin` lalu buka terminal baru.
 - Jika pip mengeluh `externally-managed-environment`, installer sudah memakai venv sehingga masalah ini tidak muncul.
 - Jika bridge gagal start, periksa `~/.easy-vibe/web-mcp-bridge/server/servers.json`.
+- Jika tool tidak muncul di DeepSeek, pastikan GitDesktop berjalan dan `gitdesktop-mcp` bisa dipanggil dari terminal.
 
 ## Instalasi manual (platform lain)
 
 Platform selain CachyOS + fish belum didukung installer resmi.
 
-### 1. gitrs-mcp
+### 1. Pasang GitDesktop
+
+Unduh dari halaman rilis GitDesktop, atau via paket distro/Flatpak. GitDesktop **wajib** karena menjadi hub MCP.
+
+### 2. gitrs-mcp dan mcp-filesystem-server
 
 ```bash
+# gitrs-mcp (lihat halaman rilis untuk installer platform Anda)
 brew install prasenjit-net/tap/gitrs-mcp
-```
 
-Windows/Linux: gunakan installer dari halaman release gitrs-mcp.
-
-### 2. mcp-filesystem-server
-
-```bash
+# mcp-filesystem-server
 go install github.com/mark3labs/mcp-filesystem-server@latest
 ```
 
@@ -89,23 +137,27 @@ pip install -r server/requirements.txt
 
 Muat folder proyek sebagai ekstensi unpacked di `chrome://extensions` (aktifkan Developer mode).
 
-### 4. Konfigurasi server
+### 4. Konfigurasi bridge
 
-Salin `config/bridge-servers.example.json` ke `web-mcp-bridge/server/servers.json`, lalu ganti path contoh dengan path repo Anda. Gunakan selalu garis miring `/`.
+Salin `config/bridge-servers.example.json` ke `web-mcp-bridge/server/servers.json`. File ini hanya berisi satu entry: `gitdesktop`.
 
-### 5. Jalankan bridge
+### 5. Daftarkan server anak di GitDesktop
+
+Buka **GitDesktop -> Settings -> MCP** dan tambahkan `gitrs` dan `filesystem` seperti contoh di atas.
+
+### 6. Jalankan bridge
 
 ```bash
 python server/mcp_ws_bridge.py --config server/servers.json
 ```
 
-### 6. DeepSeek
+### 7. DeepSeek
 
 Buka `https://chat.deepseek.com`, buka panel Web MCP Bridge, klik **Inject instructions**. Gunakan isi `prompts/system-prompt-id.md` bila perlu. Biarkan izin pada **Ask every time**.
 
 ## Alur kerja
 
-1. AI membaca status dan file yang relevan.
+1. AI membaca status dan file yang relevan lewat tool yang diteruskan GitDesktop.
 2. AI mengubah file lewat filesystem.
 3. Manusia menjalankan pengujian.
 4. AI membaca diff.
@@ -125,7 +177,7 @@ Checklist lengkap: `docs/keamanan.md`.
 
 ## Dokumentasi
 
-- `docs/arsitektur.md` — alur data dan pembagian peran
+- `docs/arsitektur.md` — topologi hub GitDesktop dan pembagian peran
 - `docs/keamanan.md` — checklist dan model ancaman
 - `docs/alur-kerja.md` — urutan kerja dan pola hemat payload
 - `docs/privasi.md` — istilah yang akurat dan batas privasi
