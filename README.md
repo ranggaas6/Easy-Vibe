@@ -64,13 +64,16 @@ Installer akan:
 1. Memasang `git`, `python`, `python-pip`, `go`, `curl`, `base-devel` via pacman.
 2. Memasang `gitrs-mcp` ke `~/.local/bin`.
 3. Memasang `mcp-filesystem-server` ke `~/go/bin` dan menambahkannya ke fish PATH dengan `fish_add_path`.
-4. Meng-clone Web MCP Bridge dan memasang dependensi Python di venv `~/.easy-vibe/venv` (menghindari blokir PEP 668).
-5. Menulis `servers.json` dengan **satu entry: gitdesktop**.
-6. Membuat launcher `~/.easy-vibe/start-easy-vibe.fish`.
+4. Memasang GitDesktop (paru/yay/flatpak, atau peringatan untuk pasang manual).
+5. Meng-clone Web MCP Bridge dan memasang dependensi Python di venv `~/.easy-vibe/venv` (menghindari blokir PEP 668).
+6. Menulis `servers.json` dengan **satu entry: gitdesktop**.
+7. Menulis snippet `~/.easy-vibe/gitdesktop-mcp-servers.json` berisi `gitrs` dan `filesystem` untuk ditempel ke Settings MCP GitDesktop.
+8. Membuat launcher `~/.easy-vibe/start-easy-vibe.fish`.
+9. Menulis manifest `~/.easy-vibe/manifest.txt` untuk uninstaller.
 
 ### Daftarkan server anak di GitDesktop
 
-Setelah installer selesai, buka **GitDesktop -> Settings -> MCP** dan tambahkan:
+Setelah installer selesai, buka **GitDesktop -> Settings -> MCP** dan tempel isi `~/.easy-vibe/gitdesktop-mcp-servers.json`:
 
 ```json
 {
@@ -102,12 +105,57 @@ Mulai bridge:
 ~/.easy-vibe/start-easy-vibe.fish
 ```
 
+## Uninstalasi CachyOS + fish
+
+Bersihkan sistem sebelum installer dijalankan ulang, atau hapus total.
+
+### Hapus instalasi Easy-Vibe saja
+
+```fish
+fish uninstall.fish
+```
+
+Yang dilakukan:
+
+1. Menghentikan dan menonaktifkan layanan systemd pengguna terkait Easy-Vibe.
+2. Menghentikan proses `mcp_ws_bridge.py`, `gitdesktop-mcp`, `gitrs-mcp`, `mcp-filesystem-server`.
+3. Menghapus direktori `~/.easy-vibe` (bridge, venv, launcher, snippet, manifest).
+4. Menghapus entri `~/go/bin` dari `fish_user_paths`.
+
+Tool (`gitrs-mcp`, `mcp-filesystem-server`) dan GitDesktop **tidak** dihapus secara default.
+
+### Opsi uninstaller
+
+| Opsi | Efek |
+|---|---|
+| `--dry-run` | Tampilkan rencana tanpa mengubah apa pun |
+| `--with-tools` | Hapus juga `gitrs-mcp` dan `mcp-filesystem-server` |
+| `--with-gitdesktop` | Hapus juga GitDesktop (pacman atau flatpak) |
+| `--full` | Setara `--with-tools --with-gitdesktop`, tanya sebelum hapus paket dasar pacman |
+| `--yes` | Lewati konfirmasi |
+
+Contoh bersih total dengan konfirmasi:
+
+```fish
+fish uninstall.fish --dry-run
+fish uninstall.fish --full
+```
+
+### Instal ulang dari kondisi bersih
+
+```fish
+fish install.fish --clean
+```
+
+`--clean` memanggil `uninstall.fish --yes` dulu, lalu memasang ulang. Jika instalasi lama terdeteksi tanpa `--clean`, installer berhenti dan meminta konfirmasi.
+
 ### Troubleshooting fish
 
 - Jika `gitrs-mcp` atau `mcp-filesystem-server` tidak ditemukan, jalankan `fish_add_path ~/.local/bin ~/go/bin` lalu buka terminal baru.
 - Jika pip mengeluh `externally-managed-environment`, installer sudah memakai venv sehingga masalah ini tidak muncul.
 - Jika bridge gagal start, periksa `~/.easy-vibe/web-mcp-bridge/server/servers.json`.
 - Jika tool tidak muncul di DeepSeek, pastikan GitDesktop berjalan dan `gitdesktop-mcp` bisa dipanggil dari terminal.
+- Jika uninstaller bilang direktori tidak ditemukan, berarti instalasi sudah bersih.
 
 ## Instalasi manual (platform lain)
 
