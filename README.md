@@ -10,7 +10,7 @@ Implementasi arsitektur **vibe coding lokal** yang menghubungkan DeepSeek Web Ch
 DeepSeek (LLM)
     |  internet
     v
-Web MCP Bridge (WebSocket)
+Web MCP Bridge (fork ranggaas6)
     |  127.0.0.1
     v
 GitDesktop MCP  <-- hub, satu-satunya entry di servers.json
@@ -21,12 +21,39 @@ GitDesktop MCP  <-- hub, satu-satunya entry di servers.json
 
 Bridge hanya melihat satu server: **GitDesktop MCP**. GitDesktop meneruskan tool dari server anak yang terdaftar di dalamnya. Server anak tidak ditulis ke `servers.json` bridge.
 
+## Sumber bridge
+
+Easy-Vibe memakai **fork Web MCP Bridge** milik proyek ini sebagai sumber utama:
+
+> [ranggaas6/web-mcp-bridge](https://github.com/ranggaas6/web-mcp-bridge)
+
+Fork ini adalah salinan dari [AstraxOf/web-mcp-bridge](https://github.com/AstraxOf/web-mcp-bridge) yang disesuaikan agar:
+
+- Memakai nama ekstensi **Web MCP Bridge (Fork)** sehingga bisa dipasang berdampingan dengan upstream di browser yang sama.
+- Memakai namespace storage, `sessionStorage`, penanda injeksi, dan Web Lock `wmbx_*` sehingga tidak bentrok dengan upstream di halaman yang sama.
+- Memakai port kontrol `8199`, port launcher `8198`, dan port hub `8190` sehingga tidak berebut port dengan upstream (`8099`, `8098`, `8090`).
+
+### Tabel isolasi
+
+| Aspek | Upstream | Fork Easy-Vibe |
+|---|---|---|
+| Nama ekstensi | Web MCP Bridge | Web MCP Bridge (Fork) |
+| `chrome.storage` | `wmb_*` | `wmbx_*` |
+| `sessionStorage` | `wmb:*` | `wmbx:*` |
+| Penanda DOM | `[WMB:…]` | `[WMBX:…]` |
+| Web Lock | `wmb-alive` | `wmbx-alive` |
+| Port kontrol | 8099 | 8199 |
+| Port launcher | 8098 | 8198 |
+| Port hub (gitdesktop) | 8090 | 8190 |
+
+Jika Anda ingin memakai upstream alih-alih fork, jalankan installer dengan `--upstream`.
+
 ## Komponen
 
 | Komponen | Peran | Dikonfigurasi di |
 |---|---|---|
 | DeepSeek Web Chat | Analisis, perencanaan, penulisan kode (AI cloud) | Browser |
-| Web MCP Bridge | Tool signature ringkas, izin, validasi | `servers.json` bridge |
+| Web MCP Bridge (fork) | Tool signature ringkas, izin, validasi | `servers.json` bridge |
 | GitDesktop MCP | Hub: teruskan tool anak + tool Git/forge sendiri | `servers.json` bridge |
 | gitrs-mcp | Status, diff, branch, staging, commit | Settings MCP GitDesktop |
 | mcp-filesystem-server | Baca, tulis, modifikasi file | Settings MCP GitDesktop |
@@ -52,11 +79,19 @@ Dari terminal fish, di direktori repositori:
 fish install.fish
 ```
 
+Installer akan meng-clone **fork `ranggaas6/web-mcp-bridge`** secara default.
+
 Dengan layanan systemd pengguna:
 
 ```fish
 set -Ux EASY_VIBE_INSTALL_SERVICE 1
 fish install.fish
+```
+
+Untuk memakai upstream `AstraxOf/web-mcp-bridge`:
+
+```fish
+fish install.fish --upstream
 ```
 
 Installer akan:
@@ -65,8 +100,8 @@ Installer akan:
 2. Memasang `gitrs-mcp` ke `~/.local/bin`.
 3. Memasang `mcp-filesystem-server` ke `~/go/bin` dan menambahkannya ke fish PATH dengan `fish_add_path`.
 4. Memasang GitDesktop (paru/yay/flatpak, atau peringatan untuk pasang manual).
-5. Meng-clone Web MCP Bridge dan memasang dependensi Python di venv `~/.easy-vibe/venv` (menghindari blokir PEP 668).
-6. Menulis `servers.json` dengan **satu entry: gitdesktop**.
+5. Meng-clone Web MCP Bridge dari fork (atau upstream bila `--upstream`) dan memasang dependensi Python di venv `~/.easy-vibe/venv` (menghindari blokir PEP 668).
+6. Menulis `servers.json` dengan **satu entry: gitdesktop**, port `8199`/`8198`/`8190` (atau `8099`/`8098`/`8090` bila `--upstream`).
 7. Menulis snippet `~/.easy-vibe/gitdesktop-mcp-servers.json` berisi `gitrs` dan `filesystem` untuk ditempel ke Settings MCP GitDesktop.
 8. Membuat launcher `~/.easy-vibe/start-easy-vibe.fish`.
 9. Menulis manifest `~/.easy-vibe/manifest.txt` untuk uninstaller.
@@ -175,10 +210,10 @@ brew install prasenjit-net/tap/gitrs-mcp
 go install github.com/mark3labs/mcp-filesystem-server@latest
 ```
 
-### 3. Web MCP Bridge
+### 3. Web MCP Bridge (fork)
 
 ```bash
-git clone https://github.com/AstraxOf/web-mcp-bridge
+git clone https://github.com/ranggaas6/web-mcp-bridge
 cd web-mcp-bridge
 pip install -r server/requirements.txt
 ```
@@ -187,7 +222,7 @@ Muat folder proyek sebagai ekstensi unpacked di `chrome://extensions` (aktifkan 
 
 ### 4. Konfigurasi bridge
 
-Salin `config/bridge-servers.example.json` ke `web-mcp-bridge/server/servers.json`. File ini hanya berisi satu entry: `gitdesktop`.
+Salin `config/bridge-servers.example.json` ke `web-mcp-bridge/server/servers.json`. File ini hanya berisi satu entry: `gitdesktop`, dengan port fork `8199`/`8198`/`8190`.
 
 ### 5. Daftarkan server anak di GitDesktop
 
