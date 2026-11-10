@@ -1,0 +1,154 @@
+#!/usr/bin/env fish
+# Easy-Vibe Installer untuk CachyOS + fish
+#
+# Pemakaian (dari terminal fish):
+#   fish install.fish
+#
+# Dengan layanan systemd pengguna:
+#   set -Ux EASY_VIBE_INSTALL_SERVICE 1
+#   fish install.fish
+
+set -l REPO_PATH (pwd)
+set -l INSTALL_DIR "$HOME/.easy-vibe"
+set -l BRIDGE_DIR "$INSTALL_DIR/web-mcp-bridge"
+set -l VENV_DIR "$INSTALL_DIR/venv"
+
+function langkah -a msg
+    printf '\n== %s ==\n' $msg
+end
+
+function ok -a msg
+    printf '[OK]   %s\n' $msg
+end
+
+function warn -a msg
+    printf '[PERINGATAN] %s\n' $msg
+end
+
+function gagal -a msg
+    printf '[GAGAL] %s\n' $msg >&2
+    exit 1
+end
+
+function ada -a cmd
+    command -v $cmd >/dev/null 2>&1
+end
+
+# ------------------------------------------------------------
+# 0. Validasi
+# ------------------------------------------------------------
+if not test -d "$REPO_PATH/.git"
+    gagal "Bukan repositori Git: $REPO_PATH"
+end
+
+if not command -v pacman >/dev/null 2>&1
+    gagal "pacman tidak ditemukan. Installer ini untuk CachyOS/Arch."
+end
+
+langkah "Memasang prasyarat dasar"
+set -l paket git python python-pip go curl base-devel
+sudo pacman -S --needed --noconfirm $paket
+or gagal "Gagal memasang paket dasar"
+ok "Paket dasar terpasang"
+
+# ------------------------------------------------------------
+# 1. gitrs-mcp
+# ------------------------------------------------------------
+langkah "Memasang gitrs-mcp"
+if ada gitrs-mcp
+    ok "gitrs-mcp sudah terpasang: "(command -v gitrs-mcp)
+else
+    curl -fsSL https://raw.githubusercontent.com/prasenjit-net/gitrs-mcp/master/install.sh | sh
+    if ada gitrs-mcp
+        ok "gitrs-mcp terpasang di "(command -v gitrs-mcp)
+    else
+        warn "gitrs-mcp belum ada di PATH. Buka terminal baru atau jalankan: fish_add_path ~/.local/bin"
+    end
+end
+
+# ------------------------------------------------------------
+# 2. mcp-filesystem-server
+# ------------------------------------------------------------
+langkah "Memasang mcp-filesystem-server"
+if ada mcp-filesystem-server
+    ok "mcp-filesystem-server sudah terpasang"
+else
+    go install github.com/mark3labs/mcp-filesystem-server@latest
+    or gagal "go install gagal"
+    set -l gopath_bin (go env GOPATH)/bin
+    fish_add_path $gopath_bin
+    if ada mcp-filesystem-server
+        ok "mcp-filesystem-server terpasang di $gopath_bin"
+    else
+        warn "Binary ada di $gopath_bin. Jalankan: fish_add_path $gopath_bin"
+    end
+end
+
+# ------------------------------------------------------------
+# 3. Web MCP Bridge dan venv
+# ------------------------------------------------------------
+langkah "Menyiapkan Web MCP Bridge"
+if test -d "$BRIDGE_DIR/.git"
+    git -C "$BRIDGE_DIR" pull --ff-only
+else
+    git clone https://github.com/AstraxOf/web-mcp-bridge "$BRIDGE_DIR"
+end
+
+if not test -f "$BRIDGE_DIR/server/requirements.txt"
+    gagal "Struktur bridge tidak dikenali: $BRIDGE_DIR"
+end
+
+if not test -d "$VENV_DIR"
+    python -m venv "$VENV_DIR"
+    or gagal "Gagal membuat virtual environment di $VENV_DIR"
+end
+
+"$VENV_DIR/bin/pip" install --upgrade pip
+"$VENV_DIR/bin/pip" install -r "$BRIDGE_DIR/server/requirements.txt"
+or gagal "Gagal memasang dependensi Python di venv"
+ok "Dependensi bridge terpasang di venv"
+
+# ------------------------------------------------------------
+# 4. servers.json
+# ------------------------------------------------------------
+langkah "Menulis servers.json"
+printf '{\n  "control_port": 8099,\n  "servers": [\n    {\n      "name": "filesystem",\n      "port": 8090,\n      "command": ["mcp-filesystem-server", "%s"]\n    },\n    {\n      "name": "gitrs",\n      "port": 8091,\n      "command": ["gitrs-mcp", "--repo", "%s"]\n    }\n  ]\n}\n' "$REPO_PATH" "$REPO_PATH" > "$BRIDGE_DIR/server/servers.json"
+ok "servers.json ditulis"
+
+# ------------------------------------------------------------
+# 5. Launcher fish
+# ------------------------------------------------------------
+langkah "Membuat launcher"
+set -l launcher "$INSTALL_DIR/start-easy-vibe.fish"
+printf '#!/usr/bin/env fish\ncd "%s"\nexec "%s/bin/python" server/mcp_ws_bridge.py --config server/servers.json\n' "$BRIDGE_DIR" "$VENV_DIR" > $launcher
+chmod +x $launcher
+ok "Launcher: $launcher"
+
+# ------------------------------------------------------------
+# 6. Layanan (opsional)
+# ------------------------------------------------------------
+if test "$EASY_VIBE_INSTALL_SERVICE" = "1"
+    langkah "Memasang bridge sebagai layanan systemd pengguna"
+    pushd $BRIDGE_DIR
+    "$VENV_DIR/bin/python" server/install_service.py
+    popd
+    ok "Layanan dipasang"
+else
+    warn "Layanan tidak dipasang. Jalankan launcher manual, atau ulangi dengan EASY_VIBE_INSTALL_SERVICE=1."
+end
+
+# ------------------------------------------------------------
+# 7. Ringkasan
+# ------------------------------------------------------------
+langkah "Selesai"
+printf '\nLangkah manual yang tersisa:\n\n'
+printf '1. Pasang ekstensi browser:\n'
+printf '   - Buka chrome://extensions (atau edge://extensions / brave://extensions)\n'
+printf '   - Aktifkan Developer mode\n'
+printf '   - Klik Load unpacked\n'
+printf '   - Pilih folder: %s\n\n' "$BRIDGE_DIR"
+printf '2. Buka https://chat.deepseek.com\n'
+printf '3. Buka panel Web MCP Bridge, klik Inject instructions\n'
+printf '4. Biarkan izin pada Ask every time\n\n'
+printf 'Mulai bridge:\n  %s\n\n' $launcher
+printf 'Periksa prasyarat:\n  bash scripts/check-prerequisites.sh\n\n'
