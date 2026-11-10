@@ -14,27 +14,56 @@ Implementasi arsitektur **vibe coding lokal** yang menghubungkan DeepSeek Web Ch
 | mcp-filesystem-server | Baca/tulis file di direktori repo |
 | GitDesktop | GUI manusia untuk review perubahan |
 
-## Arsitektur
+## Instalasi CachyOS + fish
 
-```mermaid
-flowchart LR
-  A["DeepSeek Web Chat<br/>(cloud)"] <-->|"internet"| B["Web MCP Bridge<br/>(ekstensi + Python)"]
-  B <-->|"127.0.0.1"| C["gitrs-mcp"]
-  B <-->|"127.0.0.1"| D["mcp-filesystem-server"]
-  C --> E["Repository lokal"]
-  D --> E
-  F["GitDesktop (GUI)"] --> E
+Target resmi saat ini: **CachyOS (Arch-based) dengan fish**.
+
+### Jalankan installer
+
+Dari terminal fish, di direktori repositori:
+
+```fish
+fish install.fish
 ```
 
-## Prasyarat
+Dengan layanan systemd pengguna:
 
-- Python 3.9+
-- Go 1.21+ (untuk filesystem server)
-- Git
-- Chrome/Edge/Brave 116+
-- GitDesktop (opsional, untuk review visual)
+```fish
+set -Ux EASY_VIBE_INSTALL_SERVICE 1
+fish install.fish
+```
 
-## Instalasi
+Installer akan:
+
+1. Memasang `git`, `python`, `python-pip`, `go`, `curl`, `base-devel` via pacman.
+2. Memasang `gitrs-mcp` ke `~/.local/bin`.
+3. Memasang `mcp-filesystem-server` ke `~/go/bin` dan menambahkannya ke fish PATH dengan `fish_add_path`.
+4. Meng-clone Web MCP Bridge dan memasang dependensi Python di venv `~/.easy-vibe/venv` (menghindari blokir PEP 668).
+5. Menulis `servers.json` dengan path repo Anda.
+6. Membuat launcher `~/.easy-vibe/start-easy-vibe.fish`.
+
+### Setelah instalasi
+
+Dua langkah tetap manual karena dibatasi browser dan situs DeepSeek:
+
+1. Muat folder `~/.easy-vibe/web-mcp-bridge` sebagai ekstensi unpacked di `chrome://extensions`.
+2. Buka DeepSeek, klik **Inject instructions** di panel bridge.
+
+Mulai bridge:
+
+```fish
+~/.easy-vibe/start-easy-vibe.fish
+```
+
+### Troubleshooting fish
+
+- Jika `gitrs-mcp` atau `mcp-filesystem-server` tidak ditemukan, jalankan `fish_add_path ~/.local/bin ~/go/bin` lalu buka terminal baru.
+- Jika pip mengeluh `externally-managed-environment`, installer sudah memakai venv sehingga masalah ini tidak muncul.
+- Jika bridge gagal start, periksa `~/.easy-vibe/web-mcp-bridge/server/servers.json`.
+
+## Instalasi manual (platform lain)
+
+Platform selain CachyOS + fish belum didukung installer resmi.
 
 ### 1. gitrs-mcp
 
@@ -72,7 +101,7 @@ python server/mcp_ws_bridge.py --config server/servers.json
 
 ### 6. DeepSeek
 
-Buka `https://chat.deepseek.com`, buka panel Web MCP Bridge, klik **Inject instructions**. Gunakan isi `prompts/system-prompt-id.md` bila perlu menyuntikkan aturan secara manual. Biarkan izin pada **Ask every time**.
+Buka `https://chat.deepseek.com`, buka panel Web MCP Bridge, klik **Inject instructions**. Gunakan isi `prompts/system-prompt-id.md` bila perlu. Biarkan izin pada **Ask every time**.
 
 ## Alur kerja
 
