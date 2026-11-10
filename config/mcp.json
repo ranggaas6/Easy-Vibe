@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "mcp-filesystem-server",
+      "args": ["C:/Users/CHANGE_ME/projects/Easy-Vibe"],
+      "description": "Akses baca/tulis hanya ke direktori repo. Jangan arahkan ke home atau seluruh drive."
+    },
+    "gitrs": {
+      "command": "gitrs-mcp",
+      "args": ["--repo", "C:/Users/CHANGE_ME/projects/Easy-Vibe"],
+      "description": "Operasi Git read-only. Aktifkan --allow-write hanya saat diperlukan."
+    }
+  },
+  "notes": [
+    "Gunakan garis miring / pada semua path, termasuk di Windows.",
+    "Jangan menambahkan server yang tidak dipakai. Semakin sedikit server aktif, semakin kecil konteks.",
+    "Aktifkan mode persetujuan untuk semua operasi tulis."
+  ]
+}
