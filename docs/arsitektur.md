@@ -1,92 +1,91 @@
 # Arsitektur
 
-Dokumen ini menjelaskan alur data dan pembagian peran pada arsitektur vibe coding lokal Easy-Vibe.
+Topologi yang dipakai:
+
+```
+DeepSeek (LLM)
+    |  internet
+    v
+Web MCP Bridge (WebSocket)
+    |  127.0.0.1
+    v
+GitDesktop MCP  <-- hub, satu-satunya entry di servers.json
+    |
+    +-- gitrs-mcp               (child, di Settings MCP GitDesktop)
+    +-- mcp-filesystem-server   (child, di Settings MCP GitDesktop)
+```
+
+Bridge hanya melihat satu server, yaitu GitDesktop MCP. GitDesktop menjadi hub yang meneruskan tool dari server anak. Server anak tidak ditulis ke `servers.json` bridge.
 
 ## Prinsip dasar
 
-1. **Tool lokal, AI cloud.** AI berjalan di DeepSeek Web Chat. Tool berjalan di komputer lokal melalui Web MCP Bridge.
-2. **Pemisahan tugas.** Membaca Git, mengedit file, dan mengelola repositori adalah tiga tanggung jawab berbeda.
-3. **Jumlah tool kecil.** Semakin sedikit server MCP aktif, semakin kecil konteks dan semakin kecil kemungkinan model bingung memilih tool.
-4. **Manusia di titik keputusan.** Staging, commit, dan operasi destruktif memerlukan persetujuan manusia.
+1. Tool lokal, AI cloud.
+2. Satu titik masuk: bridge hanya bicara ke GitDesktop MCP.
+3. Server anak dikelola di Settings MCP GitDesktop.
+4. Manusia memegang keputusan staging, commit, dan operasi destruktif.
 
 ## Alur data
 
-```
-                 INTERNET
-                     |
-           DeepSeek Web Chat
-                     |
-             Prompt + kode
-             + hasil MCP
-                     |
-                     v
-             Web MCP Bridge
-                     |
-              Komputer lokal
-                     |
-             File dan Git lokal
-```
-
-Ketika DeepSeek membaca kode melalui filesystem MCP, hasil pembacaan dikirim kembali ke halaman chat. DeepSeek menerima hasil itu sebagai bagian dari percakapan. Karena itu, data yang dibaca tool **keluar dari komputer**.
-
-## Diagram komponen
-
-```mermaid
-flowchart TB
-  subgraph Cloud
-    A["DeepSeek Web Chat"]
-  end
-  subgraph Lokal
-    B["Web MCP Bridge"]
-    C["mcp-filesystem-server"]
-    D["gitrs-mcp"]
-    E["Repository<br/>source code + .git"]
-    F["GitDesktop (GUI)"]
-  end
-  A <-->|internet| B
-  B <-->|127.0.0.1:8090| C
-  B <-->|127.0.0.1:8091| D
-  C --> E
-  D --> E
-  F --> E
-```
+Ketika DeepSeek membaca kode melalui filesystem yang diteruskan GitDesktop, hasil pembacaan dikirim kembali ke halaman chat. Data yang dibaca tool keluar dari komputer.
 
 ## Pembagian peran
 
-| Komponen | Peran | Aktif di jalur default? |
+| Komponen | Peran | Dikonfigurasi di |
 |---|---|---|
-| DeepSeek Web Chat | Analisis, perencanaan, instruksi, pembuatan kode (AI cloud) | Ya |
-| Web MCP Bridge | Tool signature ringkas, izin, validasi pemanggilan | Ya |
-| mcp-filesystem-server | Baca, tulis, modifikasi source code | Ya (dengan izin tulis) |
-| gitrs-mcp | Status, diff, branch, staging, commit | Ya (izin tulis saat diperlukan) |
-| GitDesktop (GUI) | Pemeriksaan visual oleh manusia | Ya (di luar MCP) |
-| GitDesktop MCP | Info tambahan seperti PR atau CI | Tidak, aktifkan hanya bila perlu |
+| DeepSeek Web Chat | Analisis, perencanaan, penulisan kode | Browser |
+| Web MCP Bridge | Tool signature ringkas, izin, validasi | servers.json bridge |
+| GitDesktop MCP | Hub: teruskan tool anak + tool Git/forge sendiri | servers.json bridge |
+| gitrs-mcp | Status, diff, branch, staging, commit | Settings MCP GitDesktop |
+| mcp-filesystem-server | Baca, tulis, modifikasi file | Settings MCP GitDesktop |
+| GitDesktop GUI | Review visual oleh manusia | Aplikasi desktop |
 
-## Mengapa GitDesktop MCP tidak aktif secara default
+## Konfigurasi bridge
 
-gitrs-mcp dan GitDesktop MCP sama-sama menyediakan operasi baca Git. Menyalakan keduanya berarti model menerima dua cara untuk membaca informasi yang sama. Dampaknya:
-
-- Jumlah tool bertambah dan konteks membesar.
-- Model bisa bingung memilih tool.
-- Ada risiko dua jalur tulis ke repository yang sama.
-
-Karena itu GitDesktop dipakai sebagai GUI manusia. MCP GitDesktop hanya diaktifkan bila informasi yang dibutuhkan tidak tersedia di gitrs-mcp, misalnya status PR atau CI.
-
-## Dua jalur tulis
-
-```
-DeepSeek
-   |-- gitrs-mcp (--allow-write)
-   |      -> reset, restore, stage, commit, branch
-   |
-   +-- mcp-filesystem
-          -> write, modify, move, delete file
+```json
+{
+  "control_port": 8099,
+  "servers": [
+    {
+      "name": "gitdesktop",
+      "port": 8090,
+      "command": ["gitdesktop-mcp"]
+    }
+  ]
+}
 ```
 
-Keduanya dapat mengubah keadaan repository. Urutan kerja yang konsisten wajib dipakai agar perubahan tidak hilang. Lihat `alur-kerja.md`.
+## Konfigurasi GitDesktop (Settings MCP)
 
-## Batasan yang perlu diingat
+```json
+{
+  "mcpServers": {
+    "gitrs": {
+      "command": "gitrs-mcp",
+      "args": ["--repo", "/path/ke/repo"]
+    },
+    "filesystem": {
+      "command": "mcp-filesystem-server",
+      "args": ["/path/ke/repo"]
+    }
+  }
+}
+```
 
-- Bridge bergantung pada format respons model dan struktur UI website. Perubahan di DeepSeek dapat mengganggu alur.
-- Klaim penghematan token sekitar 50% adalah klaim pengembang, bukan benchmark independen. Penghematan deskripsi tool tidak otomatis menghemat seluruh konteks percakapan.
-- Batas direktori pada filesystem MCP **bukan** sandbox keamanan mutlak. Proses MCP berjalan dengan hak akses sistem operasi yang meluncurkannya.
+## Dua jalur tulis tetap berlaku
+
+Meski lewat satu hub, dua jalur tulis masih ada:
+
+```
+GitDesktop MCP
+  +-- gitrs-mcp   (reset, restore, stage, commit, branch)
+  +-- filesystem  (write, modify, move, delete file)
+```
+
+Urutan kerja di `alur-kerja.md` wajib dipakai agar keduanya tidak saling menimpa.
+
+## Batasan
+
+- Bridge bergantung pada format respons model dan struktur UI website.
+- Klaim hemat token 50% adalah klaim pengembang, bukan benchmark independen.
+- Batas direktori filesystem bukan sandbox OS mutlak.
+- GitDesktop MCP menambah satu lapisan. Jika GitDesktop tidak berjalan atau gitdesktop-mcp gagal start, seluruh rantai tool ikut gagal meski gitrs-mcp dan filesystem sehat.
