@@ -3,10 +3,12 @@
 #
 # Topologi: DeepSeek -> Web MCP Bridge -> GitDesktop MCP (hub) -> gitrs-mcp + mcp-filesystem-server
 #
-# Pemakaian (dari terminal fish):
-#   fish install.fish
+# Pemakaian:
+#   fish install.fish              # pasang
+#   fish install.fish --clean      # bersihkan dulu via uninstall.fish, lalu pasang
+#   fish install.fish --force      # timpa instalasi lama tanpa bertanya
 #
-# Dengan layanan systemd pengguna:
+# Layanan systemd pengguna:
 #   set -Ux EASY_VIBE_INSTALL_SERVICE 1
 #   fish install.fish
 
@@ -14,6 +16,24 @@ set -l REPO_PATH (pwd)
 set -l INSTALL_DIR "$HOME/.easy-vibe"
 set -l BRIDGE_DIR "$INSTALL_DIR/web-mcp-bridge"
 set -l VENV_DIR "$INSTALL_DIR/venv"
+set -l MANIFEST "$INSTALL_DIR/manifest.txt"
+set -l CLEAN 0
+set -l FORCE 0
+
+for a in $argv
+    switch $a
+        case --clean
+            set CLEAN 1
+        case --force
+            set FORCE 1
+        case -h --help
+            echo "Pemakaian: fish install.fish [--clean] [--force]"
+            exit 0
+        case '*'
+            echo "Opsi tidak dikenal: $a" >&2
+            exit 1
+    end
+end
 
 function langkah -a msg
     printf '\n== %s ==\n' $msg
@@ -47,6 +67,32 @@ if not command -v pacman >/dev/null 2>&1
     gagal "pacman tidak ditemukan. Installer ini untuk CachyOS/Arch."
 end
 
+# ------------------------------------------------------------
+# 0a. Bersihkan instalasi lama bila diminta atau terdeteksi
+# ------------------------------------------------------------
+if test $CLEAN -eq 1
+    langkah "Membersihkan instalasi lama"
+    if test -f (dirname (status --current-filename))/uninstall.fish
+        fish (dirname (status --current-filename))/uninstall.fish --yes
+    else if test -f uninstall.fish
+        fish uninstall.fish --yes
+    else
+        warn "uninstall.fish tidak ditemukan. Menghapus direktori instalasi saja."
+        rm -rf "$INSTALL_DIR"
+    end
+    ok "Pembersihan selesai"
+else if test -f "$MANIFEST" -a $FORCE -eq 0
+    warn "Instalasi lama terdeteksi di $INSTALL_DIR."
+    warn "Jalankan dengan --clean untuk membersihkan dulu, atau --force untuk menimpa."
+    gagal "Dibatalkan agar tidak menumpuk di atas instalasi lama."
+end
+
+mkdir -p "$INSTALL_DIR"
+set -l manifest_lines "installed_at "(date -Iseconds)
+
+# ------------------------------------------------------------
+# 1. Prasyarat dasar
+# ------------------------------------------------------------
 langkah "Memasang prasyarat dasar"
 set -l paket git python python-pip go curl base-devel
 sudo pacman -S --needed --noconfirm $paket
@@ -54,7 +100,7 @@ or gagal "Gagal memasang paket dasar"
 ok "Paket dasar terpasang"
 
 # ------------------------------------------------------------
-# 1. gitrs-mcp
+# 2. gitrs-mcp
 # ------------------------------------------------------------
 langkah "Memasang gitrs-mcp"
 if ada gitrs-mcp
@@ -63,13 +109,14 @@ else
     curl -fsSL https://raw.githubusercontent.com/prasenjit-net/gitrs-mcp/master/install.sh | sh
     if ada gitrs-mcp
         ok "gitrs-mcp terpasang di "(command -v gitrs-mcp)
+        set -a manifest_lines "gitrs-mcp "(command -v gitrs-mcp)
     else
         warn "gitrs-mcp belum ada di PATH. Buka terminal baru atau jalankan: fish_add_path ~/.local/bin"
     end
 end
 
 # ------------------------------------------------------------
-# 2. mcp-filesystem-server
+# 3. mcp-filesystem-server
 # ------------------------------------------------------------
 langkah "Memasang mcp-filesystem-server"
 if ada mcp-filesystem-server
@@ -79,6 +126,8 @@ else
     or gagal "go install gagal"
     set -l gopath_bin (go env GOPATH)/bin
     fish_add_path $gopath_bin
+    set -a manifest_lines "fish_user_paths "$gopath_bin
+    set -a manifest_lines "mcp-filesystem-server "$gopath_bin/mcp-filesystem-server
     if ada mcp-filesystem-server
         ok "mcp-filesystem-server terpasang di $gopath_bin"
     else
@@ -87,7 +136,7 @@ else
 end
 
 # ------------------------------------------------------------
-# 3. GitDesktop (hub MCP, wajib)
+# 4. GitDesktop (hub MCP, wajib)
 # ------------------------------------------------------------
 langkah "Memasang GitDesktop (hub MCP)"
 if ada gitdesktop || ada gitdesktop-mcp
@@ -95,13 +144,13 @@ if ada gitdesktop || ada gitdesktop-mcp
 else
     if ada paru
         paru -S --needed --noconfirm gitdesktop-bin
-        or warn "paru gagal memasang gitdesktop-bin"
+        and set -a manifest_lines "pacman gitdesktop-bin"
     else if ada yay
         yay -S --needed --noconfirm gitdesktop-bin
-        or warn "yay gagal memasang gitdesktop-bin"
+        and set -a manifest_lines "pacman gitdesktop-bin"
     else if ada flatpak
         flatpak install -y flathub io.github.thebguy.GitDesktop
-        or warn "flatpak gagal memasang GitDesktop"
+        and set -a manifest_lines "flatpak io.github.thebguy.GitDesktop"
     else
         warn "Tidak ada paru/yay/flatpak. Pasang GitDesktop manual dari https://github.com/theBGuy/GitDesktop"
     end
@@ -114,7 +163,7 @@ else
 end
 
 # ------------------------------------------------------------
-# 4. Web MCP Bridge dan venv
+# 5. Web MCP Bridge dan venv
 # ------------------------------------------------------------
 langkah "Menyiapkan Web MCP Bridge"
 if test -d "$BRIDGE_DIR/.git"
@@ -138,23 +187,22 @@ or gagal "Gagal memasang dependensi Python di venv"
 ok "Dependensi bridge terpasang di venv"
 
 # ------------------------------------------------------------
-# 5. servers.json: satu entry gitdesktop
+# 6. servers.json: satu entry gitdesktop
 # ------------------------------------------------------------
 langkah "Menulis servers.json (satu entry: gitdesktop)"
 printf '{\n  "control_port": 8099,\n  "servers": [\n    {\n      "name": "gitdesktop",\n      "port": 8090,\n      "command": ["gitdesktop-mcp"]\n    }\n  ]\n}\n' > "$BRIDGE_DIR/server/servers.json"
 ok "servers.json ditulis dengan gitdesktop sebagai hub"
 
 # ------------------------------------------------------------
-# 6. Daftarkan server anak di GitDesktop
+# 7. Snippet server anak
 # ------------------------------------------------------------
-langkah "Mendaftarkan server anak di GitDesktop"
+langkah "Menyiapkan snippet server anak untuk GitDesktop"
 set -l snippet_path "$INSTALL_DIR/gitdesktop-mcp-servers.json"
 printf '{\n  "mcpServers": {\n    "gitrs": {\n      "command": "gitrs-mcp",\n      "args": ["--repo", "%s"]\n    },\n    "filesystem": {\n      "command": "mcp-filesystem-server",\n      "args": ["%s"]\n    }\n  }\n}\n' "$REPO_PATH" "$REPO_PATH" > $snippet_path
 ok "Snippet ditulis ke $snippet_path"
-printf 'Salin isi file di atas ke Settings -> MCP di GitDesktop agar gitrs-mcp dan mcp-filesystem-server terdaftar sebagai server anak.\n'
 
 # ------------------------------------------------------------
-# 7. Launcher fish
+# 8. Launcher fish
 # ------------------------------------------------------------
 langkah "Membuat launcher"
 set -l launcher "$INSTALL_DIR/start-easy-vibe.fish"
@@ -163,20 +211,28 @@ chmod +x $launcher
 ok "Launcher: $launcher"
 
 # ------------------------------------------------------------
-# 8. Layanan (opsional)
+# 9. Layanan (opsional)
 # ------------------------------------------------------------
 if test "$EASY_VIBE_INSTALL_SERVICE" = "1"
     langkah "Memasang bridge sebagai layanan systemd pengguna"
     pushd $BRIDGE_DIR
     "$VENV_DIR/bin/python" server/install_service.py
     popd
+    set -a manifest_lines "systemd-user easy-vibe"
     ok "Layanan dipasang"
 else
     warn "Layanan tidak dipasang. Jalankan launcher manual, atau ulangi dengan EASY_VIBE_INSTALL_SERVICE=1."
 end
 
 # ------------------------------------------------------------
-# 9. Ringkasan
+# 10. Manifest untuk uninstaller
+# ------------------------------------------------------------
+langkah "Menulis manifest"
+printf '%s\n' $manifest_lines > "$MANIFEST"
+ok "Manifest: $MANIFEST"
+
+# ------------------------------------------------------------
+# 11. Ringkasan
 # ------------------------------------------------------------
 langkah "Selesai"
 printf '\nLangkah manual yang tersisa:\n\n'
@@ -192,4 +248,5 @@ printf '3. Buka https://chat.deepseek.com\n'
 printf '4. Buka panel Web MCP Bridge, klik Inject instructions\n'
 printf '5. Biarkan izin pada Ask every time\n\n'
 printf 'Mulai bridge:\n  %s\n\n' $launcher
+printf 'Hapus instalasi:\n  fish uninstall.fish\n\n'
 printf 'Periksa prasyarat:\n  fish scripts/check-prerequisites.fish\n\n'

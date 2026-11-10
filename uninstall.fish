@@ -1,0 +1,147 @@
+#!/usr/bin/env fish
+# Easy-Vibe Uninstaller untuk CachyOS + fish
+
+set -l DRY 0
+set -l TOOLS 0
+set -l GD 0
+set -l FULL 0
+set -l YES 0
+
+for a in $argv
+    switch $a
+        case --dry-run
+            set DRY 1
+        case --with-tools
+            set TOOLS 1
+        case --with-gitdesktop
+            set GD 1
+        case --full
+            set FULL 1
+            set TOOLS 1
+            set GD 1
+        case --yes -y
+            set YES 1
+        case -h --help
+            echo "Pemakaian: fish uninstall.fish [--dry-run] [--with-tools] [--with-gitdesktop] [--full] [--yes]"
+            exit 0
+        case '*'
+            echo "Opsi tidak dikenal: $a" >&2
+            exit 1
+    end
+end
+
+set -l DIR "$HOME/.easy-vibe"
+set -l GOBIN (go env GOPATH 2>/dev/null)/bin
+
+function say -a m
+    printf "%s\n" "$m"
+end
+
+function rm_path -a p
+    if test -e "$p"
+        if test $DRY -eq 1
+            say "akan dihapus: $p"
+        else
+            rm -rf "$p"
+            say "dihapus: $p"
+        end
+    end
+end
+
+say "== Uninstaller Easy-Vibe =="
+if test $DRY -eq 1
+    say "mode dry-run"
+end
+
+say "== Layanan systemd pengguna =="
+for f in (ls "$HOME/.config/systemd/user" 2>/dev/null)
+    if string match -q "*easy-vibe*" "$f"; or string match -q "*mcp-ws-bridge*" "$f"; or string match -q "*web-mcp-bridge*" "$f"
+        if test $DRY -eq 0
+            systemctl --user stop "$f" 2>/dev/null
+            systemctl --user disable "$f" 2>/dev/null
+        end
+        rm_path "$HOME/.config/systemd/user/$f"
+    end
+end
+
+say "== Proses berjalan =="
+for n in mcp_ws_bridge.py gitdesktop-mcp gitrs-mcp mcp-filesystem-server
+    if pgrep -f "$n" >/dev/null 2>&1
+        if test $DRY -eq 0
+            pkill -f "$n" 2>/dev/null
+            say "dihentikan: $n"
+        else
+            say "akan dihentikan: $n"
+        end
+    end
+end
+
+say "== Direktori instalasi =="
+rm_path "$DIR"
+
+say "== fish PATH =="
+if contains "$GOBIN" $fish_user_paths
+    if test $DRY -eq 0
+        set -U fish_user_paths (string match -v -- "$GOBIN" $fish_user_paths)
+        say "dihapus dari fish_user_paths: $GOBIN"
+    else
+        say "akan dihapus dari fish_user_paths: $GOBIN"
+    end
+end
+
+if test $TOOLS -eq 1
+    say "== Tool =="
+    rm_path "$HOME/.local/bin/gitrs-mcp"
+    rm_path "$GOBIN/mcp-filesystem-server"
+end
+
+if test $GD -eq 1
+    say "== GitDesktop =="
+    if pacman -Qi gitdesktop-bin >/dev/null 2>&1
+        if test $DRY -eq 0
+            if command -v paru >/dev/null 2>&1
+                paru -Rns --noconfirm gitdesktop-bin
+            else if command -v yay >/dev/null 2>&1
+                yay -Rns --noconfirm gitdesktop-bin
+            end
+            say "gitdesktop-bin dihapus"
+        else
+            say "akan dihapus: gitdesktop-bin"
+        end
+    end
+    if command -v flatpak >/dev/null 2>&1
+        if flatpak list --app 2>/dev/null | string match -q "*GitDesktop*"
+            if test $DRY -eq 0
+                flatpak uninstall -y io.github.thebguy.GitDesktop
+                say "flatpak GitDesktop dihapus"
+            else
+                say "akan dihapus: io.github.thebguy.GitDesktop"
+            end
+        end
+    end
+end
+
+if test $FULL -eq 1
+    say "== Paket pacman dasar =="
+    say "git python python-pip go curl base-devel"
+    if test $YES -eq 1
+        set -l jawab y
+    else
+        read -l -P "Hapus paket pacman dasar? [y/N] " jawab
+    end
+    if test "$jawab" = "y"; or test "$jawab" = "Y"
+        if test $DRY -eq 0
+            sudo pacman -Rns --noconfirm git python python-pip go curl base-devel
+            say "paket pacman dihapus"
+        else
+            say "akan dihapus via pacman"
+        end
+    end
+end
+
+say "== Selesai =="
+if test $DRY -eq 1
+    say "Jalankan tanpa --dry-run untuk benar-benar menghapus."
+else
+    say "Buka terminal baru agar PATH aktif."
+end
