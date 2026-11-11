@@ -122,64 +122,6 @@ install_gitdesktop "$HOME/Applications/GitDesktop.AppImage" "$HOME/.local/bin/gi
 printf '\n== Web MCP Bridge ==\n'
 install_bridge $BRIDGE_REPO $BRIDGE_DIR $VENV_DIR $GH_TOKEN; or exit 1
 
-printf '\n== Konfigurasi Ekstensi Brave (Otomatis) ==\n'
-if command -v brave >/dev/null 2>&1
-    # Cari file desktop Brave yang ada di sistem
-    set -l system_brave_desktop ""
-    for f in /usr/share/applications/brave-browser.desktop /usr/share/applications/com.brave.Browser.desktop /usr/share/applications/brave.desktop
-        if test -f $f
-            set system_brave_desktop $f
-            break
-        end
-    end
-
-    if test -n "$system_brave_desktop"
-        set -l local_brave_desktop "$HOME/.local/share/applications/"(basename $system_brave_desktop)
-        mkdir -p "$HOME/.local/share/applications"
-        cp $system_brave_desktop $local_brave_desktop
-
-        # Modifikasi Exec= untuk menambahkan flag --load-extension dan --enable-unsafe-extension-debugging
-        python3 -c "
-import os
-p = '$local_brave_desktop'
-ext = '$BRIDGE_DIR'
-with open(p, 'r') as f:
-    lines = f.readlines()
-with open(p, 'w') as f:
-    for line in lines:
-        if line.startswith('Exec='):
-            # Hapus flag lama jika ada untuk menghindari duplikasi
-            line = line.replace(' --load-extension=\"' + ext + '\"', '')
-            line = line.replace(' --enable-unsafe-extension-debugging', '')
-            parts = line.split(' ', 1)
-            flags = ' --load-extension=\"' + ext + '\" --enable-unsafe-extension-debugging'
-            if len(parts) > 1:
-                line = parts[0] + flags + ' ' + parts[1]
-            else:
-                line = parts[0] + flags + '\n'
-        f.write(line)
-"
-        printf '[OK]   Ikon Brave standar dimodifikasi untuk memuat ekstensi secara otomatis.\n'
-
-        # Jalankan Brave sebentar untuk menulis ekstensi ke Secure Preferences
-        printf 'Menginstal ekstensi ke profil Brave default (mohon tunggu)...\n'
-        brave --load-extension="$BRIDGE_DIR" --enable-unsafe-extension-debugging --no-first-run about:blank &
-        set -l brave_pid $last_pid
-        sleep 6
-        kill $brave_pid 2>/dev/null
-        wait $brave_pid 2>/dev/null
-        printf '[OK]   Ekstensi berhasil diinjeksi ke profil default Brave.\n'
-    else
-        printf '[PERINGATAN] File desktop Brave tidak ditemukan. Lewati otomatisasi.\n'
-    end
-
-    if command -v update-desktop-database >/dev/null 2>&1
-        update-desktop-database "$HOME/.local/share/applications" 2>/dev/null
-    end
-else
-    printf '[INFO] Brave tidak ditemukan. Lewati otomatisasi ekstensi Brave.\n'
-end
-
 printf '\n== Memasang library mcp untuk multi-git ==\n'
 "$VENV_DIR/bin/pip" install "mcp<2" >/dev/null 2>&1
 or begin
