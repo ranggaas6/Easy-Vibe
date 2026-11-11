@@ -16,10 +16,12 @@ function install_gitdesktop -a appimage_path link_path
     set -l desktop_file "$desktop_dir/gitdesktop.desktop"
     set -l wrapper_path "$HOME/.easy-vibe/launch-gitdesktop.fish"
 
-    # Fungsi internal untuk menulis wrapper yang robust
-    function __write_wrapper -a appimage
-        printf '#!/usr/bin/env bash\n# Wrapper GUI Easy-Vibe\n"%s" &>/dev/null &\nGD_PID=$!\n# Tunggu sebentar agar GUI siap\nsleep 2\nfish "%s/start-easy-vibe.fish" &>/dev/null &\nBRIDGE_PID=$!\nwait $GD_PID\n# Matikan bridge dan child server\nkill $BRIDGE_PID 2>/dev/null\npkill -f mcp_ws_bridge.py 2>/dev/null\npkill -f gitdesktop-mcp 2>/dev/null\n' "$appimage" "$HOME/.easy-vibe" > "$wrapper_path"
-        chmod +x "$wrapper_path"
+    mkdir -p (dirname $wrapper_path)
+
+    # Tulis wrapper langsung (tanpa nested function agar tidak kehilangan scope variabel lokal fish)
+    function __write_wrapper -a appimage wrapper
+        printf '#!/usr/bin/env bash\n# Wrapper GUI Easy-Vibe\n"%s" &>/dev/null &\nGD_PID=$!\n# Tunggu sebentar agar GUI siap\nsleep 2\nfish "%s/start-easy-vibe.fish" &>/dev/null &\nBRIDGE_PID=$!\nwait $GD_PID\n# Matikan bridge dan child server\nkill $BRIDGE_PID 2>/dev/null\npkill -f mcp_ws_bridge.py 2>/dev/null\npkill -f gitdesktop-mcp 2>/dev/null\n' "$appimage" "$HOME/.easy-vibe" > "$wrapper"
+        chmod +x "$wrapper"
     end
 
     # Jika GitDesktop sudah ada, pastikan wrapper dibuat ulang
@@ -36,7 +38,7 @@ function install_gitdesktop -a appimage_path link_path
         set -a manifest_lines "gitdesktop-mcp-link $link_path"
         
         # --- Buat wrapper ---
-        __write_wrapper $real_appimage
+        __write_wrapper $real_appimage $wrapper_path
 
         # --- Buat file .desktop ---
         mkdir -p $desktop_dir
@@ -109,7 +111,7 @@ function install_gitdesktop -a appimage_path link_path
     end
 
     # --- Buat wrapper ---
-    __write_wrapper $appimage_path
+    __write_wrapper $appimage_path $wrapper_path
 
     # --- Buat file .desktop ---
     mkdir -p $desktop_dir
