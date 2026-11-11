@@ -1,64 +1,64 @@
 # Alur Kerja
 
-Urutan kerja yang disarankan antara AI dan manusia, serta pola hemat payload.
+Urutan kerja yang disarankan antara AI dan manusia, serta pola hemat payload dengan arsitektur tiga jalur independen.
 
 ## Urutan kerja AI dan manusia
 
-| Langkah | Pelaku | Aktivitas |
-|---|---|---|
-| 1 | DeepSeek | Membaca status repository |
-| 2 | DeepSeek | Membaca file yang dibutuhkan |
-| 3 | DeepSeek | Mengubah file melalui filesystem |
-| 4 | Manusia | Menjalankan atau memeriksa hasil pengujian |
-| 5 | DeepSeek | Membaca diff |
-| 6 | Manusia | Menyetujui staging dan commit |
+| Langkah | Pelaku | Aktivitas | Tool yang Digunakan |
+|---|---|---|---|
+| 1 | DeepSeek | Membaca status repository | `git` (lintas repo) atau `gitdesktop` (repo aktif) |
+| 2 | DeepSeek | Membaca file yang dibutuhkan | `filesystem` |
+| 3 | DeepSeek | Mengubah file | `filesystem` |
+| 4 | Manusia | Menjalankan atau memeriksa hasil pengujian | Terminal / Browser |
+| 5 | DeepSeek | Membaca diff | `git` atau `gitdesktop` |
+| 6 | Manusia | Menyetujui staging dan commit | GUI GitDesktop atau instruksi ke AI |
 
-Manusia memegang keputusan pada langkah 4 dan 6. AI tidak melakukan commit tanpa persetujuan.
+Manusia memegang keputusan pada langkah 4 dan 6. AI tidak melakukan commit tanpa persetujuan eksplisit.
 
 ## Pola hemat payload (pembacaan bertahap)
 
 ```
-git status
+git_status (sebutkan repo_path)
     |
-git diff --stat
+git_diff --stat
     |
 Pilih file relevan
     |
-Baca bagian yang diperlukan
+Baca bagian yang diperlukan via filesystem
     |
-Lakukan perubahan
+Lakukan perubahan via filesystem
     |
-git diff --stat
+git_diff --stat
     |
 Baca patch per file
     |
 Review dan commit
 ```
 
-Pola ini lebih efektif daripada meminta model membaca semua file dan seluruh riwayat Git pada setiap percakapan.
+Pola ini lebih efektif daripada meminta model membaca semua file dan seluruh riwayat Git pada setiap percakapan. Server `git` sangat berguna untuk memeriksa repositori referensi lain di folder `$HOME` tanpa harus membuka GUI GitDesktop untuk repo tersebut.
 
 ## Aturan urutan tulis
 
-Gunakan urutan berikut agar dua jalur tulis tidak saling menimpa:
+Gunakan urutan berikut agar tiga jalur tidak saling menimpa:
 
-1. Baca status dan diff terbaru.
-2. Tulis file melalui filesystem.
+1. Baca status dan diff terbaru (via `git` atau `gitdesktop`).
+2. Tulis file melalui `filesystem`.
 3. Baca diff hasil perubahan.
-4. Jalankan pengujian.
-5. Stage dan commit melalui gitrs.
+4. Jalankan pengujian (manusia).
+5. Stage dan commit (via GUI `gitdesktop` untuk repo utama, atau via tool `git` untuk repo lain).
 
 Hindari urutan berikut:
 
-1. Tulis file melalui filesystem.
-2. Jalankan `restore` atau `reset` melalui gitrs tanpa membaca diff.
+1. Tulis file melalui `filesystem`.
+2. Jalankan `restore` atau `reset` melalui tool `git` tanpa membaca diff.
 
 Pada urutan terakhir, perubahan yang baru dibuat dapat hilang.
 
-## Mencegah konflik dua jalur tulis
+## Mencegah konflik antar jalur tulis
 
-- Jangan menjalankan operasi tulis filesystem dan gitrs secara bersamaan.
+- Jangan menjalankan operasi tulis `filesystem` dan operasi Git yang mengubah working tree secara bersamaan pada repo yang sama.
 - Setelah operasi tulis selesai, baca diff sebelum operasi berikutnya.
-- Gunakan satu sesi kerja per repository.
+- Gunakan satu sesi kerja per repository untuk menghindari kebingungan konteks.
 - Commit atau stash sebelum operasi Git yang mengubah working tree.
 
 ## Siklus kerja tipikal
@@ -66,15 +66,15 @@ Pada urutan terakhir, perubahan yang baru dibuat dapat hilang.
 ### 1. Memulai tugas
 
 ```
-git status
-git diff --stat
+git_status (repo_path: "/home/user/proyek-utama")
+git_diff --stat
 ```
 
-Baca file yang relevan dengan tugas. Jangan membaca seluruh repository bila tidak perlu.
+Baca file yang relevan dengan tugas via `filesystem`. Jangan membaca seluruh repository bila tidak perlu.
 
 ### 2. Mengubah kode
 
-Tulis atau modifikasi file melalui filesystem MCP. Baca kembali file yang diubah untuk memastikan isinya benar.
+Tulis atau modifikasi file melalui `filesystem`. Baca kembali file yang diubah untuk memastikan isinya benar.
 
 ### 3. Memverifikasi
 
@@ -83,22 +83,21 @@ Manusia menjalankan pengujian. AI tidak menganggap perubahan berhasil tanpa bukt
 ### 4. Meninjau diff
 
 ```
-git diff --stat
-git diff -- <path>
+git_diff --stat
+git_diff (dengan argumen file spesifik jika didukung)
 ```
 
 Baca patch per file. Periksa apakah perubahan sesuai maksud.
 
 ### 5. Commit
 
-Manusia menyetujui staging dan commit. Gunakan pesan commit yang menjelaskan maksud perubahan.
+Manusia menyetujui staging dan commit. Gunakan pesan commit yang menjelaskan maksud perubahan. Untuk repo yang sedang dibuka di GitDesktop, gunakan GUI-nya. Untuk repo referensi, gunakan tool `git_commit` via AI.
 
 ## Penanganan kegagalan tool
 
-- Jika tool gagal, baca pesan error.
-- Jangan mengulang panggilan yang sama tanpa perubahan.
-- Jika error disebabkan path atau argumen, perbaiki argumen.
-- Jika error disebabkan izin, minta manusia menyesuaikan konfigurasi.
+- Jika tool `git` (port 8191) gagal terhubung, periksa apakah `~/.easy-vibe/run-multi-git.sh` memiliki path absolut yang valid dan dapat dieksekusi.
+- Jika tool `filesystem` gagal, periksa apakah direktori yang dituju ada dan memiliki izin baca/tulis.
+- Jika tool `gitdesktop` gagal, pastikan GUI GitDesktop sedang berjalan.
 - Jika error berulang, hentikan dan laporkan.
 
 ## Batas konteks
