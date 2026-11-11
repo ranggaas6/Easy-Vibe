@@ -31,6 +31,7 @@ for a in $argv
 end
 
 set -l DIR "$HOME/.easy-vibe"
+set -l MANIFEST "$DIR/manifest.txt"
 set -l GOBIN (go env GOPATH 2>/dev/null)/bin
 
 function say -a m
@@ -51,6 +52,34 @@ end
 say "== Uninstaller Easy-Vibe =="
 if test $DRY -eq 1
     say "mode dry-run"
+end
+
+# ------------------------------------------------------------
+# Manifest-driven removal (default)
+# ------------------------------------------------------------
+# install.fish mencatat setiap artefak yang ia buat ke manifest.
+# Uninstaller default cukup menghapus persis apa yang tercatat,
+# sehingga GitDesktop ikut terhapus otomatis bila installer
+# yang memasangnya.
+if test -f "$MANIFEST"
+    say "== Artefak dari manifest =="
+    for line in (cat "$MANIFEST")
+        set -l parts (string split " " -- $line)
+        if test (count $parts) -lt 2
+            continue
+        end
+        switch $parts[1]
+            case gitdesktop-appimage gitdesktop-mcp-link
+                rm_path $parts[2]
+            case mcp-filesystem-server gitrs-mcp
+                if test $TOOLS -eq 1
+                    rm_path $parts[2]
+                end
+        end
+    end
+else
+    say "== Manifest tidak ditemukan =="
+    say "(instalasi lama; gunakan flag eksplisit bila perlu)"
 end
 
 say "== Layanan systemd pengguna =="
@@ -96,14 +125,10 @@ if test $TOOLS -eq 1
 end
 
 if test $GD -eq 1
-    say "== GitDesktop =="
-    # GitDesktop dipasang lewat rilis resmi (AppImage). Yang kita bersihkan:
-    #   1. Symlink `gitdesktop-mcp` di ~/.local/bin yang dibuat oleh Settings
-    #      "Use GitDesktop as an MCP server -> Add to PATH".
-    #   2. Berkas AppImage di ~/Applications bila ada.
-    # Paket AUR `gitdesktop-bin` dan Flatpak `io.github.thebguy.GitDesktop`
-    # tetap dicoba dibersihkan hanya jika benar-benar terpasang, sebagai
-    # jalur warisan untuk instalasi lama.
+    say "== GitDesktop (flag eksplisit) =="
+    # Flag ini dipertahankan sebagai jalur warisan untuk instalasi lama
+    # yang manifest-nya belum mencatat GitDesktop. Pada instalasi baru,
+    # pembersihan GitDesktop sudah dilakukan otomatis lewat manifest.
 
     set -l launcher "$HOME/.local/bin/gitdesktop-mcp"
     if test -L "$launcher" -o -f "$launcher"

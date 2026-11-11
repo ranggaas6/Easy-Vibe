@@ -64,55 +64,46 @@ Jika Anda ingin memakai upstream alih-alih fork, jalankan installer dengan `--up
 - Python 3.9+
 - Go 1.21+ (untuk filesystem server)
 - Git
-- GitDesktop (wajib, karena menjadi hub MCP)
 - Chrome/Edge/Brave 116+
 
-## Pasang GitDesktop (wajib)
+GitDesktop **tidak lagi** menjadi prasyarat manual: installer memasangnya otomatis dari rilis resmi. Lihat bagian **GitDesktop (dipasang otomatis)** di bawah.
 
-GitDesktop **harus** dipasang manual. Jangan mengandalkan manajer paket distro:
+## GitDesktop (dipasang otomatis)
 
-- **AUR (`gitdesktop-bin`) sudah usang.** Rilis terakhir di AUR tertahan di awal 2025, sedangkan rilis resmi jauh lebih baru (mis. `v0.14.0`, November 2026).
+GitDesktop adalah hub MCP, jadi wajib ada. Sejak versi ini `install.fish` **memasangnya sendiri** tanpa langkah manual, dengan cara:
+
+1. Mengambil rilis terbaru dari GitHub API:
+   `https://api.github.com/repos/theBGuy/GitDesktop/releases/latest`
+2. Memilih aset **`GitDesktop_<versi>_amd64.AppImage`** (arsip macOS `.app.tar.gz`, `.deb`, dan `.rpm` sengaja tidak dipakai — lihat catatan di bawah).
+3. Mengunduhnya ke `~/Applications/GitDesktop.AppImage`, lalu `chmod +x`.
+4. Membuat symlink `~/.local/bin/gitdesktop-mcp` yang menunjuk ke AppImage tersebut. Ini menggantikan langkah GUI **Settings -> Use GitDesktop as an MCP server -> Add to PATH**.
+5. Memverifikasi dengan `gitdesktop-mcp --version`. Jika berhasil, symlink dicatat ke manifest.
+
+### Kenapa AppImage, bukan `.app.tar.gz` atau paket lain
+
+- **`GitDesktop_<versi>_universal.app.tar.gz` bukan paket Linux.** Itu bundel *updater* Tauri untuk **macOS** (berisi direktori `GitDesktop.app`). Artefak updater Linux justru bernama `.AppImage.tar.gz`.
+- **AUR (`gitdesktop-bin`) sudah usang.** Rilis terakhir di AUR tertahan di awal 2025, sedangkan rilis resmi jauh lebih baru.
 - **Flatpak `io.github.thebguy.GitDesktop` tidak tersedia di Flathub.** Perintah `flatpak install` akan gagal.
+- **`.deb` dan `.rpm` tidak native di Arch.** Keduanya butuh manajer paket distro lain.
+- **AppImage adalah satu-satunya format Linux resmi yang portabel** dan bisa dipasang tanpa pacman, AUR, atau Flatpak.
 
-Satu-satunya sumber yang andal adalah **halaman rilis resmi** di GitHub:
+### Jika verifikasi gagal
 
-> https://github.com/theBGuy/GitDesktop/releases/latest
+Pada sebagian versi, `gitdesktop-mcp --version` baru berhasil setelah GUI dibuka sekali (untuk menulis konfigurasi MCP). Dalam kasus itu installer akan memberi peringatan dan Anda cukup melakukan sekali:
 
-### Langkah pasang di CachyOS / Arch (x86_64)
+1. Jalankan `~/Applications/GitDesktop.AppImage`.
+2. Buka **Settings -> Use GitDesktop as an MCP server -> Add to PATH**.
+3. Buka terminal baru, lalu cek `gitdesktop-mcp --version`.
 
-1. Buka halaman rilis di atas, lalu unduh aset **`GitDesktop_<versi>_amd64.AppImage`** (mis. `GitDesktop_0.14.0_amd64.AppImage`).
-2. Pindahkan ke direktori aplikasi pengguna dan jadikan dapat dieksekusi:
+AppImage tetap sudah terpasang; hanya symlink yang perlu dipastikan.
 
-   ```fish
-   mkdir -p ~/Applications
-   mv ~/Downloads/GitDesktop_0.14.0_amd64.AppImage ~/Applications/GitDesktop.AppImage
-   chmod +x ~/Applications/GitDesktop.AppImage
-   ```
+### Melewati pemasangan otomatis
 
-3. Jalankan sekali untuk memastikan GUI terbuka:
+Jika Anda sudah punya GitDesktop sendiri:
 
-   ```fish
-   ~/Applications/GitDesktop.AppImage
-   ```
-
-4. Di dalam GitDesktop, buka **Settings -> Use GitDesktop as an MCP server**, lalu klik **Add to PATH**. GitDesktop akan membuat symlink `~/.local/bin/gitdesktop-mcp` yang menunjuk ke binary aplikasi. Ini yang membuat perintah `gitdesktop-mcp` bisa dipanggil dari terminal dan dipakai bridge.
-5. Pastikan `~/.local/bin` ada di `$PATH` fish. Jika belum:
-
-   ```fish
-   fish_add_path ~/.local/bin
-   ```
-
-6. Verifikasi dari terminal baru:
-
-   ```fish
-   gitdesktop-mcp --version
-   ```
-
-> **Catatan:** yang dipakai bridge adalah perintah **`gitdesktop-mcp`**, bukan GUI-nya. Tanpa langkah 4, folder `~/.easy-vibe/web-mcp-bridge/server/servers.json` akan menunjuk ke perintah yang tidak ada, dan bridge gagal start.
-
-### Alternatif paket (tidak disarankan)
-
-Rilis resmi juga menyediakan `.deb` dan `.rpm`. Di Arch keduanya tidak dipakai. AppImage adalah pilihan paling langsung. Jika suatu saat paket AUR atau Flatpak diperbarui dan sinkron dengan rilis resmi, Anda boleh memakainya, tetapi jangan mengandalkannya sekarang.
+```fish
+fish install.fish --skip-gitdesktop
+```
 
 ## Instalasi CachyOS + fish
 
@@ -120,11 +111,7 @@ Target resmi saat ini: **CachyOS (Arch-based) dengan fish**.
 
 Installer berada **di dalam repositori ini** sebagai `install.fish`. Karena itu Anda harus meng-clone repositori lebih dulu, lalu menjalankan installer dari dalam direktori hasil clone.
 
-### 1. Pasang GitDesktop lebih dulu
-
-Ikuti bagian **Pasang GitDesktop (wajib)** di atas. Jangan lanjut sebelum `gitdesktop-mcp --version` berhasil dari terminal baru.
-
-### 2. Clone repositori
+### 1. Clone repositori
 
 ```fish
 git clone https://github.com/ranggaas6/Easy-Vibe
@@ -133,13 +120,13 @@ cd Easy-Vibe
 
 Installer memeriksa bahwa direktori kerja adalah repositori Git. Bila dijalankan di luar direktori ini, installer gagal dengan pesan `Bukan repositori Git`.
 
-### 3. Cek prasyarat (opsional)
+### 2. Cek prasyarat (opsional)
 
 ```fish
 fish scripts/check-prerequisites.fish
 ```
 
-### 4. Jalankan installer
+### 3. Jalankan installer
 
 Dari dalam direktori repositori yang baru di-clone:
 
@@ -147,7 +134,7 @@ Dari dalam direktori repositori yang baru di-clone:
 fish install.fish
 ```
 
-Installer akan meng-clone **fork `ranggaas6/web-mcp-bridge`** secara default.
+Installer akan meng-clone **fork `ranggaas6/web-mcp-bridge`** secara default, dan memasang **GitDesktop** otomatis.
 
 Dengan layanan systemd pengguna:
 
@@ -169,18 +156,19 @@ Opsi lain:
 | `--clean` | Jalankan `uninstall.fish --yes` dulu, lalu pasang ulang |
 | `--force` | Timpa instalasi lama tanpa bertanya |
 | `--upstream` | Pakai upstream (port `8099`/`8098`/`8090`) |
+| `--skip-gitdesktop` | Lewati pemasangan otomatis GitDesktop |
 
 Installer akan:
 
 1. Memasang `git`, `python`, `python-pip`, `go`, `curl`, `base-devel` via pacman.
 2. Memasang `gitrs-mcp` ke `~/.local/bin`.
 3. Memasang `mcp-filesystem-server` ke `~/go/bin` dan menambahkannya ke fish PATH dengan `fish_add_path`.
-4. Memeriksa keberadaan `gitdesktop` / `gitdesktop-mcp` di PATH. Installer **tidak** mencoba memasang GitDesktop dari AUR atau Flatpak, karena keduanya tidak sinkron dengan rilis resmi. Bila `gitdesktop-mcp` tidak ditemukan, installer hanya memberi peringatan bahwa Anda harus memasang GitDesktop manual lewat halaman rilis resmi.
+4. **Memasang GitDesktop otomatis**: unduh AppImage x86_64 terbaru, pasang di `~/Applications/GitDesktop.AppImage`, buat symlink `~/.local/bin/gitdesktop-mcp`, lalu verifikasi.
 5. Meng-clone Web MCP Bridge dari fork (atau upstream bila `--upstream`) dan memasang dependensi Python di venv `~/.easy-vibe/venv` (menghindari blokir PEP 668).
 6. Menulis `servers.json` dengan **satu entry: gitdesktop**, port `8199`/`8198`/`8190` (atau `8099`/`8098`/`8090` bila `--upstream`).
 7. Menulis snippet `~/.easy-vibe/gitdesktop-mcp-servers.json` berisi `gitrs` dan `filesystem` untuk ditempel ke Settings MCP GitDesktop.
 8. Membuat launcher `~/.easy-vibe/start-easy-vibe.fish`.
-9. Menulis manifest `~/.easy-vibe/manifest.txt` untuk uninstaller.
+9. Menulis manifest `~/.easy-vibe/manifest.txt` untuk uninstaller, termasuk entri `gitdesktop-appimage` dan `gitdesktop-mcp-link`.
 
 ### Daftarkan server anak di GitDesktop
 
@@ -228,14 +216,17 @@ Dari dalam direktori repositori hasil clone:
 fish uninstall.fish
 ```
 
-Yang dilakukan:
+Uninstaller kini **membaca manifest** `~/.easy-vibe/manifest.txt` dan menghapus persis apa yang dicatat installer. Artinya, **GitDesktop ikut terhapus otomatis** bila Easy-Vibe yang memasangnya — tanpa flag tambahan.
 
-1. Menghentikan dan menonaktifkan layanan systemd pengguna terkait Easy-Vibe.
-2. Menghentikan proses `mcp_ws_bridge.py`, `gitdesktop-mcp`, `gitrs-mcp`, `mcp-filesystem-server`.
-3. Menghapus direktori `~/.easy-vibe` (bridge, venv, launcher, snippet, manifest).
-4. Menghapus entri `~/go/bin` dari `fish_user_paths`.
+Yang dilakukan secara default:
 
-Tool (`gitrs-mcp`, `mcp-filesystem-server`) dan GitDesktop **tidak** dihapus secara default.
+1. Menghapus artefak yang tercatat di manifest: `gitdesktop-appimage` (AppImage di `~/Applications`) dan `gitdesktop-mcp-link` (symlink di `~/.local/bin`).
+2. Menghentikan dan menonaktifkan layanan systemd pengguna terkait Easy-Vibe.
+3. Menghentikan proses `mcp_ws_bridge.py`, `gitdesktop-mcp`, `gitrs-mcp`, `mcp-filesystem-server`.
+4. Menghapus direktori `~/.easy-vibe` (bridge, venv, launcher, snippet, manifest).
+5. Menghapus entri `~/go/bin` dari `fish_user_paths`.
+
+Tool (`gitrs-mcp`, `mcp-filesystem-server`) tetap **tidak** dihapus kecuali diminta dengan `--with-tools`.
 
 ### Opsi uninstaller
 
@@ -243,7 +234,7 @@ Tool (`gitrs-mcp`, `mcp-filesystem-server`) dan GitDesktop **tidak** dihapus sec
 |---|---|
 | `--dry-run` | Tampilkan rencana tanpa mengubah apa pun |
 | `--with-tools` | Hapus juga `gitrs-mcp` dan `mcp-filesystem-server` |
-| `--with-gitdesktop` | Hapus juga GitDesktop (AppImage di `~/Applications`, symlink `~/.local/bin/gitdesktop-mcp`) |
+| `--with-gitdesktop` | Jalur warisan: hapus GitDesktop secara eksplisit (untuk instalasi lama yang manifest-nya belum mencatat GitDesktop) |
 | `--full` | Setara `--with-tools --with-gitdesktop`, tanya sebelum hapus paket dasar pacman |
 | `--yes` | Lewati konfirmasi |
 
@@ -265,7 +256,8 @@ fish install.fish --clean
 ### Troubleshooting fish
 
 - Jika `gitrs-mcp` atau `mcp-filesystem-server` tidak ditemukan, jalankan `fish_add_path ~/.local/bin ~/go/bin` lalu buka terminal baru.
-- Jika `gitdesktop-mcp` tidak ditemukan, berarti GitDesktop belum dipasang lewat rilis resmi, atau langkah **Settings -> Use GitDesktop as an MCP server -> Add to PATH** belum dijalankan. Ulangi bagian **Pasang GitDesktop (wajib)**.
+- Jika `gitdesktop-mcp` tidak ditemukan padahal AppImage sudah ada, buka GitDesktop sekali dan jalankan **Settings -> Use GitDesktop as an MCP server -> Add to PATH**, lalu buka terminal baru.
+- Jika unduhan AppImage gagal (misalnya tidak ada koneksi ke GitHub API), pasang manual dari halaman rilis resmi, lalu jalankan `install.fish --skip-gitdesktop`.
 - Jika `paru -S gitdesktop-bin` atau `flatpak install io.github.thebguy.GitDesktop` gagal, itu memang diharapkan. Kedua kanal tidak lagi sinkron dengan rilis resmi. Pakai AppImage dari halaman rilis.
 - Jika pip mengeluh `externally-managed-environment`, installer sudah memakai venv sehingga masalah ini tidak muncul.
 - Jika bridge gagal start, periksa `~/.easy-vibe/web-mcp-bridge/server/servers.json`.
@@ -287,6 +279,8 @@ Unduh aset yang cocok dari halaman rilis resmi:
 - **Windows** — `GitDesktop_<versi>_x64-setup.exe` atau `.msi`.
 - **macOS** — `GitDesktop_<versi>_universal.dmg`.
 - **Linux x86_64** — `GitDesktop_<versi>_amd64.AppImage` (disarankan), atau `.deb` / `.rpm` bila distro Anda memakainya.
+
+Jangan memakai `GitDesktop_<versi>_universal.app.tar.gz`: itu bundel *updater* macOS, bukan paket Linux.
 
 Setelah aplikasi terpasang dan dibuka, jalankan **Settings -> Use GitDesktop as an MCP server -> Add to PATH**. Di Linux/macOS ini membuat symlink `~/.local/bin/gitdesktop-mcp`; di Windows ini menambahkan direktori launcher ke PATH pengguna. Verifikasi dengan `gitdesktop-mcp --version` dari terminal baru.
 
