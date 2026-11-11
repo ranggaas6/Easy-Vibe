@@ -15,7 +15,6 @@ set -l CLEAN 0
 set -l FORCE 0
 set -l USE_UPSTREAM 0
 set -l CLI_TOKEN ""
-set -l SKIP_SERVICE 0
 set -g EASY_VIBE_SKIP_GITDESKTOP 0
 
 set -l i 1
@@ -30,8 +29,6 @@ while test $i -le (count $argv)
             set USE_UPSTREAM 1
         case --skip-gitdesktop
             set -g EASY_VIBE_SKIP_GITDESKTOP 1
-        case --no-service
-            set SKIP_SERVICE 1
         case --github-token
             set i (math $i + 1)
             if test $i -gt (count $argv)
@@ -40,7 +37,7 @@ while test $i -le (count $argv)
             end
             set CLI_TOKEN $argv[$i]
         case -h --help
-            echo "Pemakaian: fish install.fish [--clean] [--force] [--upstream] [--skip-gitdesktop] [--no-service] [--github-token TOKEN]"
+            echo "Pemakaian: fish install.fish [--clean] [--force] [--upstream] [--skip-gitdesktop] [--github-token TOKEN]"
             exit 0
         case '*'
             echo "Opsi tidak dikenal: $a" >&2
@@ -140,19 +137,8 @@ set -l launcher "$INSTALL_DIR/start-easy-vibe.fish"
 printf '#!/usr/bin/env fish\ncd "%s"\nexec "%s/bin/python" server/mcp_ws_bridge.py --config server/servers.json\n' "$BRIDGE_DIR" "$VENV_DIR" > $launcher
 chmod +x $launcher
 
-if test $SKIP_SERVICE -eq 0
-    printf '\n== Memasang layanan systemd pengguna ==\n'
-    pushd $BRIDGE_DIR
-    "$VENV_DIR/bin/python" server/install_service.py
-    popd
-    systemctl --user daemon-reload
-    systemctl --user enable --now easy-vibe 2>/dev/null; or systemctl --user enable --now mcp-ws-bridge 2>/dev/null; or true
-    set -a manifest_lines "systemd-user easy-vibe"
-    printf '[OK] Bridge berjalan otomatis di latar belakang (systemd user)\n'
-else
-    printf '[PERINGATAN] Layanan systemd dilewati (--no-service). Jalankan manual: %s\n' $launcher
-end
-
 printf '%s\n' $manifest_lines > "$MANIFEST"
 printf '\n== Selesai ==\n'
-printf 'Bridge berjalan otomatis. Launcher manual: %s\n' $launcher
+printf 'Siklus hidup otomatis telah diaktifkan.\n'
+printf 'Bridge akan menyala saat Anda membuka GitDesktop, dan mati saat Anda menutupnya.\n'
+printf 'Launcher manual (jika diperlukan): %s\n' $launcher
