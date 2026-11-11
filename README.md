@@ -77,7 +77,9 @@ GitDesktop adalah hub MCP, jadi wajib ada. Sejak versi ini `install.fish` **mema
 2. Memilih aset **`GitDesktop_<versi>_amd64.AppImage`** (arsip macOS `.app.tar.gz`, `.deb`, dan `.rpm` sengaja tidak dipakai — lihat catatan di bawah).
 3. Mengunduhnya ke `~/Applications/GitDesktop.AppImage`, lalu `chmod +x`.
 4. Membuat symlink `~/.local/bin/gitdesktop-mcp` yang menunjuk ke AppImage tersebut. Ini menggantikan langkah GUI **Settings -> Use GitDesktop as an MCP server -> Add to PATH**.
-5. Memverifikasi dengan `gitdesktop-mcp --version`. Jika berhasil, symlink dicatat ke manifest.
+5. Memverifikasi dengan `timeout 5 gitdesktop-mcp mcp </dev/null`. Perintah ini menguji **mode MCP**, bukan `--version`. Exit 0/1 (termasuk pesan `connection closed: initialize request`) berarti CLI MCP aktif; exit 124 berarti AppImage menggantung (GUI terbuka).
+
+> **Kenapa bukan `--version`?** AppImage Tauri tidak menangani flag `--version` di mode CLI. Saat dipanggil via symlink, AppImage me-mount dirinya dan menjalankan GUI, sehingga perintah menggantung tanpa batas. Verifikasi mode MCP + `timeout` menghindari hal itu.
 
 ### Kenapa AppImage, bukan `.app.tar.gz` atau paket lain
 
@@ -87,15 +89,15 @@ GitDesktop adalah hub MCP, jadi wajib ada. Sejak versi ini `install.fish` **mema
 - **`.deb` dan `.rpm` tidak native di Arch.** Keduanya butuh manajer paket distro lain.
 - **AppImage adalah satu-satunya format Linux resmi yang portabel** dan bisa dipasang tanpa pacman, AUR, atau Flatpak.
 
-### Jika verifikasi gagal
+### Jika verifikasi menggantung
 
-Pada sebagian versi, `gitdesktop-mcp --version` baru berhasil setelah GUI dibuka sekali (untuk menulis konfigurasi MCP). Dalam kasus itu installer akan memberi peringatan dan Anda cukup melakukan sekali:
+Jika installer melaporkan `gitdesktop-mcp menggantung saat dipanggil mode MCP`, berarti AppImage membuka GUI saat dipanggil via symlink. Lakukan sekali:
 
 1. Jalankan `~/Applications/GitDesktop.AppImage`.
 2. Buka **Settings -> Use GitDesktop as an MCP server -> Add to PATH**.
-3. Buka terminal baru, lalu cek `gitdesktop-mcp --version`.
+3. Buka terminal baru, lalu uji: `timeout 5 gitdesktop-mcp mcp </dev/null; echo "exit: $status"`.
 
-AppImage tetap sudah terpasang; hanya symlink yang perlu dipastikan.
+AppImage tetap sudah terpasang; hanya jalur MCP via symlink yang perlu dipastikan.
 
 ### Melewati pemasangan otomatis
 
@@ -163,7 +165,7 @@ Installer akan:
 1. Memasang `git`, `python`, `python-pip`, `go`, `curl`, `base-devel` via pacman.
 2. Memasang `gitrs-mcp` ke `~/.local/bin`.
 3. Memasang `mcp-filesystem-server` ke `~/go/bin` dan menambahkannya ke fish PATH dengan `fish_add_path`.
-4. **Memasang GitDesktop otomatis**: unduh AppImage x86_64 terbaru, pasang di `~/Applications/GitDesktop.AppImage`, buat symlink `~/.local/bin/gitdesktop-mcp`, lalu verifikasi.
+4. **Memasang GitDesktop otomatis**: unduh AppImage x86_64 terbaru, pasang di `~/Applications/GitDesktop.AppImage`, buat symlink `~/.local/bin/gitdesktop-mcp`, lalu verifikasi mode MCP dengan `timeout`.
 5. Meng-clone Web MCP Bridge dari fork (atau upstream bila `--upstream`) dan memasang dependensi Python di venv `~/.easy-vibe/venv` (menghindari blokir PEP 668).
 6. Menulis `servers.json` dengan **satu entry: gitdesktop**, port `8199`/`8198`/`8190` (atau `8099`/`8098`/`8090` bila `--upstream`).
 7. **Menulis `.mcp.json` di root repo** berisi `gitrs` dan `filesystem`. GitDesktop akan mendeteksinya otomatis saat repo dibuka (lihat `discover_mcp_servers` di source GitDesktop).
@@ -270,13 +272,13 @@ fish install.fish --clean
 ### Troubleshooting fish
 
 - Jika `gitrs-mcp` atau `mcp-filesystem-server` tidak ditemukan, jalankan `fish_add_path ~/.local/bin ~/go/bin` lalu buka terminal baru.
-- Jika `gitdesktop-mcp` tidak ditemukan padahal AppImage sudah ada, buka GitDesktop sekali dan jalankan **Settings -> Use GitDesktop as an MCP server -> Add to PATH**, lalu buka terminal baru.
+- Jika installer melaporkan `gitdesktop-mcp menggantung saat dipanggil mode MCP`, buka GitDesktop sekali dan jalankan **Settings -> Use GitDesktop as an MCP server -> Add to PATH**, lalu buka terminal baru dan uji `timeout 5 gitdesktop-mcp mcp </dev/null`.
 - Jika server `gitrs`/`filesystem` tidak muncul di **Settings -> MCP** GitDesktop, pastikan repo yang dibuka di GitDesktop adalah root `Easy-Vibe` (tempat `.mcp.json` berada), lalu klik **Refresh** atau buka ulang dialog.
 - Jika unduhan AppImage gagal (misalnya tidak ada koneksi ke GitHub API), pasang manual dari halaman rilis resmi, lalu jalankan `install.fish --skip-gitdesktop`.
 - Jika `paru -S gitdesktop-bin` atau `flatpak install io.github.thebguy.GitDesktop` gagal, itu memang diharapkan. Kedua kanal tidak lagi sinkron dengan rilis resmi. Pakai AppImage dari halaman rilis.
 - Jika pip mengeluh `externally-managed-environment`, installer sudah memakai venv sehingga masalah ini tidak muncul.
 - Jika bridge gagal start, periksa `~/.easy-vibe/web-mcp-bridge/server/servers.json`.
-- Jika tool tidak muncul di DeepSeek, pastikan GitDesktop berjalan dan `gitdesktop-mcp` bisa dipanggil dari terminal.
+- Jika tool tidak muncul di DeepSeek, pastikan GitDesktop berjalan dan mode MCP `gitdesktop-mcp` bisa dipanggil dari terminal.
 - Jika installer menolak berjalan dengan pesan `Bukan repositori Git`, pastikan Anda menjalankannya dari dalam direktori hasil `git clone`.
 - Jika installer menolak berjalan dengan pesan `pacman tidak ditemukan`, berarti sistem Anda bukan CachyOS/Arch; gunakan bagian instalasi manual.
 - Jika uninstaller bilang direktori tidak ditemukan, berarti instalasi sudah bersih.
@@ -297,7 +299,7 @@ Unduh aset yang cocok dari halaman rilis resmi:
 
 Jangan memakai `GitDesktop_<versi>_universal.app.tar.gz`: itu bundel *updater* macOS, bukan paket Linux.
 
-Setelah aplikasi terpasang dan dibuka, jalankan **Settings -> Use GitDesktop as an MCP server -> Add to PATH**. Di Linux/macOS ini membuat symlink `~/.local/bin/gitdesktop-mcp`; di Windows ini menambahkan direktori launcher ke PATH pengguna. Verifikasi dengan `gitdesktop-mcp --version` dari terminal baru.
+Setelah aplikasi terpasang dan dibuka, jalankan **Settings -> Use GitDesktop as an MCP server -> Add to PATH**. Di Linux/macOS ini membuat symlink `~/.local/bin/gitdesktop-mcp`; di Windows ini menambahkan direktori launcher ke PATH pengguna. Verifikasi dari terminal baru dengan `timeout 5 gitdesktop-mcp mcp </dev/null; echo "exit: $status"` — nilai selain 124 berarti CLI MCP aktif.
 
 GitDesktop **wajib** karena menjadi hub MCP. Jangan mengandalkan paket AUR `gitdesktop-bin` (usang) atau Flatpak `io.github.thebguy.GitDesktop` (tidak tersedia di Flathub).
 

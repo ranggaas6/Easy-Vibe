@@ -58,11 +58,22 @@ function install_gitdesktop -a appimage_path link_path
     printf '[OK]   Symlink gitdesktop-mcp dibuat di %s\n' $link_path
     set -a manifest_lines "gitdesktop-mcp-link $link_path"
 
-    if test -x "$link_path"; and fish -c "'$link_path' --version >/dev/null 2>&1"
-        printf '[OK]   GitDesktop terpasang dan gitdesktop-mcp terverifikasi\n'
-    else
-        printf '[PERINGATAN] AppImage terpasang, tetapi gitdesktop-mcp belum terverifikasi.\n'
+    # Verifikasi mode MCP, bukan --version.
+    # AppImage Tauri: `--version` tidak ditangani -> GUI terbuka -> menggantung.
+    # Subcommand `mcp` dengan stdin ditutup -> "connection closed: initialize request" -> exit 1.
+    # exit 0/1 = CLI MCP aktif; exit 124 = timeout (GUI terbuka, salah); 127 = tidak dapat dieksekusi.
+    set -l gd_rc 124
+    if test -x "$link_path"
+        timeout 5 "$link_path" mcp </dev/null >/dev/null 2>&1
+        set gd_rc $status
+    end
+    if test $gd_rc -ne 124; and test $gd_rc -ne 127
+        printf '[OK]   gitdesktop-mcp merespons mode MCP (exit %d)\n' $gd_rc
+    else if test $gd_rc -eq 124
+        printf '[PERINGATAN] gitdesktop-mcp menggantung saat dipanggil mode MCP.\n'
         printf '[PERINGATAN] Buka GitDesktop sekali, lalu Settings -> Use GitDesktop as an MCP server -> Add to PATH.\n'
+    else
+        printf '[PERINGATAN] gitdesktop-mcp tidak dapat dieksekusi di %s\n' $link_path
     end
     return 0
 end
