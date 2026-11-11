@@ -16,6 +16,12 @@ function install_gitdesktop -a appimage_path link_path
     set -l desktop_file "$desktop_dir/gitdesktop.desktop"
     set -l wrapper_path "$HOME/.easy-vibe/launch-gitdesktop.fish"
 
+    # Fungsi internal untuk menulis wrapper yang robust
+    function __write_wrapper -a appimage
+        printf '#!/usr/bin/env bash\n# Wrapper GUI Easy-Vibe\n"%s" &>/dev/null &\nGD_PID=$!\n# Tunggu sebentar agar GUI siap\nsleep 2\nfish "%s/start-easy-vibe.fish" &>/dev/null &\nBRIDGE_PID=$!\nwait $GD_PID\n# Matikan bridge dan child server\nkill $BRIDGE_PID 2>/dev/null\npkill -f mcp_ws_bridge.py 2>/dev/null\npkill -f gitdesktop-mcp 2>/dev/null\n' "$appimage" "$HOME/.easy-vibe" > "$wrapper_path"
+        chmod +x "$wrapper_path"
+    end
+
     # Jika GitDesktop sudah ada, pastikan wrapper dibuat ulang
     if ada_gd gitdesktop-mcp
         set -l real_appimage (readlink -f (command -v gitdesktop-mcp))
@@ -30,8 +36,7 @@ function install_gitdesktop -a appimage_path link_path
         set -a manifest_lines "gitdesktop-mcp-link $link_path"
         
         # --- Buat wrapper ---
-        printf '#!/usr/bin/env fish\n# Wrapper GUI Easy-Vibe\n"%s" &>/dev/null &\nset -g gd_pid $last_pid\n\nfor i in (seq 1 20)\n    if not kill -0 $gd_pid 2>/dev/null\n        exit 0\n    end\n    if ss -tln | grep -q ":8190 "\n        break\n    end\n    sleep 0.5\nend\n\nfish "%s/start-easy-vibe.fish" &>/dev/null &\nset -g bridge_pid $last_pid\nwait $gd_pid\nkill $bridge_pid 2>/dev/null\n' "$real_appimage" "$HOME/.easy-vibe" > "$wrapper_path"
-        chmod +x "$wrapper_path"
+        __write_wrapper $real_appimage
 
         # --- Buat file .desktop ---
         mkdir -p $desktop_dir
@@ -104,8 +109,7 @@ function install_gitdesktop -a appimage_path link_path
     end
 
     # --- Buat wrapper ---
-    printf '#!/usr/bin/env fish\n# Wrapper GUI Easy-Vibe\n"%s" &>/dev/null &\nset -g gd_pid $last_pid\n\nfor i in (seq 1 20)\n    if not kill -0 $gd_pid 2>/dev/null\n        exit 0\n    end\n    if ss -tln | grep -q ":8190 "\n        break\n    end\n    sleep 0.5\nend\n\nfish "%s/start-easy-vibe.fish" &>/dev/null &\nset -g bridge_pid $last_pid\nwait $gd_pid\nkill $bridge_pid 2>/dev/null\n' "$appimage_path" "$HOME/.easy-vibe" > "$wrapper_path"
-    chmod +x "$wrapper_path"
+    __write_wrapper $appimage_path
 
     # --- Buat file .desktop ---
     mkdir -p $desktop_dir
