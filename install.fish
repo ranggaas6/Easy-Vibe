@@ -1,7 +1,4 @@
 #!/usr/bin/env fish
-# Easy-Vibe Installer untuk CachyOS + fish
-# Pemakaian: fish install.fish [--clean] [--force] [--upstream] [--skip-gitdesktop] [--github-token TOKEN]
-
 set -l SCRIPT_DIR (dirname (status --current-filename))
 source "$SCRIPT_DIR/scripts/github-auth.fish"
 source "$SCRIPT_DIR/scripts/install-base.fish"
@@ -49,7 +46,6 @@ while test $i -le (count $argv)
     set i (math $i + 1)
 end
 
-# 0. Token
 set -g GH_TOKEN ""
 set -l tok_args
 if test -n "$CLI_TOKEN"
@@ -60,20 +56,17 @@ if gh_token_resolve $tok_args
 end
 if test -n "$GH_TOKEN"
     if not gh_token_validate $GH_TOKEN
-        printf '[GAGAL] Format token tidak valid (ghp_ atau github_pat_)\n' >&2
+        printf '[GAGAL] Format token tidak valid\n' >&2
         exit 1
     end
     if test -n "$CLI_TOKEN"; or not test -f "$TOKEN_FILE"
         gh_token_save $GH_TOKEN
-        printf '[OK] Token GitHub disimpan di %s (chmod 600)\n' $TOKEN_FILE
+        printf '[OK] Token GitHub disimpan\n'
     end
 else
-    printf '[PERINGATAN] Token GitHub tidak diberikan. Clone repo private akan gagal.\n'
+    printf '[PERINGATAN] Token GitHub tidak diberikan.\n'
 end
 
-# 1. Sumber bridge
-# PENTING: set -l di dalam blok if pada fish bersifat lokal ke blok itu saja.
-# Deklarasikan di level skrip, isi ulang dengan `set` (tanpa -l) di dalam blok.
 set -l BRIDGE_REPO "https://github.com/ranggaas6/web-mcp-bridge"
 set -l CONTROL_PORT 8199
 set -l LAUNCHER_PORT 8198
@@ -87,13 +80,8 @@ if test $USE_UPSTREAM -eq 1
     set BRIDGE_LABEL "upstream"
 end
 
-if test -z "$BRIDGE_REPO"
-    printf '[GAGAL] BRIDGE_REPO kosong — bug scoping.\n' >&2
-    exit 1
-end
-
 if not test -d "$REPO_PATH/.git"
-    printf '[GAGAL] Bukan repositori Git: %s\n' $REPO_PATH >&2
+    printf '[GAGAL] Bukan repositori Git\n' >&2
     exit 1
 end
 if not command -v pacman >/dev/null 2>&1
@@ -129,7 +117,6 @@ printf '\n== Memasang GitDesktop ==\n'
 install_gitdesktop "$HOME/Applications/GitDesktop.AppImage" "$HOME/.local/bin/gitdesktop-mcp"
 
 printf '\n== Web MCP Bridge ==\n'
-printf 'Sumber: %s\n' $BRIDGE_REPO
 install_bridge $BRIDGE_REPO $BRIDGE_DIR $VENV_DIR $GH_TOKEN; or exit 1
 
 printf '\n== Menulis servers.json ==\n'
@@ -140,7 +127,11 @@ printf '{\n  "mcpServers": {\n    "gitrs": {\n      "command": "gitrs-mcp",\n   
 
 set -l repo_mcp "$REPO_PATH/.mcp.json"
 printf '{\n  "mcpServers": {\n    "gitrs": {\n      "command": "gitrs-mcp",\n      "args": ["--repo", "%s"]\n    },\n    "filesystem": {\n      "command": "mcp-filesystem-server",\n      "args": ["%s"]\n    }\n  }\n}\n' "$REPO_PATH" "$REPO_PATH" > $repo_mcp
-printf '[OK] .mcp.json ditulis di root repo (GitDesktop akan mendeteksinya otomatis)\n'
+
+printf '\n== Menyuntikkan MCP otomatis ==\n'
+if command -v python >/dev/null 2>&1
+    python "$SCRIPT_DIR/scripts/inject_gitdesktop_mcp.py" "$REPO_PATH"
+end
 
 set -l launcher "$INSTALL_DIR/start-easy-vibe.fish"
 printf '#!/usr/bin/env fish\ncd "%s"\nexec "%s/bin/python" server/mcp_ws_bridge.py --config server/servers.json\n' "$BRIDGE_DIR" "$VENV_DIR" > $launcher
@@ -154,17 +145,5 @@ if test "$EASY_VIBE_INSTALL_SERVICE" = "1"
 end
 
 printf '%s\n' $manifest_lines > "$MANIFEST"
-
 printf '\n== Selesai ==\n'
-printf 'Bridge: %s | kontrol %d, launcher %d, hub %d\n' $BRIDGE_LABEL $CONTROL_PORT $LAUNCHER_PORT $HUB_PORT
-if test -n "$GH_TOKEN"
-    printf 'Token GitHub: %s\n' $TOKEN_FILE
-end
-if not command -v gitdesktop-mcp >/dev/null 2>&1
-    printf 'Manual: buka GitDesktop -> Settings -> Use GitDesktop as an MCP server -> Add to PATH\n'
-end
-printf '\nLangkah manual yang tersisa:\n'
-printf '1. Buka repo ini di GitDesktop, lalu Settings -> MCP -> klik Import (.mcp.json sudah terdeteksi)\n'
-printf '2. chrome://extensions -> Load unpacked -> %s\n' "$BRIDGE_DIR"
-printf '3. https://chat.deepseek.com -> panel bridge -> Inject instructions\n\n'
 printf 'Launcher: %s\n' $launcher
