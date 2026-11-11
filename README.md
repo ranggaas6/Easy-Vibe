@@ -1,6 +1,6 @@
 # Easy-Vibe
 
-Implementasi arsitektur **vibe coding lokal** yang menghubungkan DeepSeek Web Chat ke tool MCP lokal lewat GitDesktop sebagai hub.
+Implementasi arsitektur **vibe coding lokal** yang menghubungkan DeepSeek Web Chat ke tool MCP lokal lewat Web MCP Bridge sebagai perantara utama.
 
 > **Penting:** ini **bukan** sistem "100% lokal". AI tetap berjalan di cloud, dan prompt, potongan kode, diff, serta hasil tool dikirim ke DeepSeek. Yang lokal adalah penyimpanan, Git, dan eksekusi tool. Baca `docs/privasi.md`.
 
@@ -13,13 +13,12 @@ DeepSeek (LLM)
 Web MCP Bridge (fork ranggaas6)
     |  127.0.0.1
     v
-GitDesktop MCP  <-- hub, satu-satunya entry di servers.json
-    |
-    +-- gitrs-mcp               (child, otomatis terdaftar)
-    +-- mcp-filesystem-server   (child, otomatis terdaftar)
++-- gitdesktop (port 8190)  <-- Hub untuk repo yang sedang dibuka (GUI & visual review)
++-- git (port 8191)         <-- Server Git independen (akses lintas repo di $HOME)
++-- filesystem (port 8192)  <-- Akses file independen (seluruh $HOME)
 ```
 
-Bridge hanya melihat satu server: **GitDesktop MCP**. GitDesktop meneruskan tool dari server anak yang terdaftar di dalamnya. Server anak tidak ditulis ke `servers.json` bridge.
+Bridge melihat tiga server independen di `servers.json`. Pembagian tiga jalur ini disengaja untuk mengadaptasi semua fitur Git milik GitHub, memungkinkan AI mengakses seluruh repositori di folder `$HOME`, dan mengakses repo lain sebagai referensi saat sedang membuka repo utama untuk koding.
 
 ## Sumber bridge
 
@@ -54,9 +53,9 @@ Jika Anda ingin memakai upstream alih-alih fork, jalankan installer dengan `--up
 |---|---|---|
 | DeepSeek Web Chat | Analisis, perencanaan, penulisan kode (AI cloud) | Browser |
 | Web MCP Bridge (fork) | Tool signature ringkas, izin, validasi | `servers.json` bridge |
-| GitDesktop MCP | Hub: teruskan tool anak + tool Git/forge sendiri | `servers.json` bridge |
-| gitrs-mcp | Status, diff, branch, staging, commit | Otomatis via skrip Python |
-| mcp-filesystem-server | Baca, tulis, modifikasi file | Otomatis via skrip Python |
+| GitDesktop MCP | Hub: tool GitDesktop khusus repo aktif | `servers.json` bridge |
+| multi-git-mcp | Status, diff, log, commit lintas repo via `repo_path` | `servers.json` bridge |
+| mcp-filesystem-server | Baca, tulis, modifikasi file lintas direktori | `servers.json` bridge |
 | GitDesktop GUI | Review visual oleh manusia | Aplikasi desktop |
 
 ## Prasyarat
@@ -70,7 +69,7 @@ GitDesktop **tidak lagi** menjadi prasyarat manual: installer memasangnya otomat
 
 ## GitDesktop (dipasang otomatis)
 
-GitDesktop adalah hub MCP, jadi wajib ada. `install.fish` **memasangnya sendiri** tanpa langkah manual:
+GitDesktop adalah hub MCP untuk repo utama, jadi wajib ada. `install.fish` **memasangnya sendiri** tanpa langkah manual:
 
 1. Mengambil rilis terbaru dari GitHub API.
 2. Memilih aset **`GitDesktop_<versi>_amd64.AppImage`** (arsip macOS `.app.tar.gz`, `.deb`, dan `.rpm` sengaja tidak dipakai).
@@ -136,16 +135,10 @@ Installer akan:
 2. Memasang `gitrs-mcp` dan `mcp-filesystem-server`.
 3. **Memasang GitDesktop otomatis** (AppImage + symlink).
 4. Meng-clone Web MCP Bridge dan memasang dependensi Python di venv.
-5. Menulis `servers.json` dengan satu entry: `gitdesktop`.
-6. **Menyuntikkan konfigurasi MCP secara otomatis** ke database internal GitDesktop menggunakan skrip Python.
+5. **Menulis `servers.json` dengan tiga entri independen:** `gitdesktop`, `git` (via wrapper `run-multi-git.sh`), dan `filesystem`.
+6. **Membersihkan child server di GitDesktop** agar tidak terjadi duplikasi tool.
 7. Membuat skrip **wrapper** (`launch-gitdesktop.fish`) dan ikon menu aplikasi (`.desktop`).
 8. Menulis manifest untuk uninstaller.
-
-### Otomatisasi Konfigurasi MCP (Tanpa Klik)
-
-Installer sudah menyuntikkan server `gitrs` dan `filesystem` secara langsung ke file konfigurasi GitDesktop (`~/.local/share/com.thebguy.gitdesktop/settings.json`) via skrip Python.
-
-**Anda tidak perlu membuka menu Settings atau melakukan Import manual.** Saat GitDesktop dibuka, server sudah dalam keadaan aktif.
 
 ### Siklus Hidup Bridge (Otomatis)
 
@@ -237,7 +230,7 @@ Unduh aset dari halaman rilis resmi:
 
 Setelah aplikasi terpasang dan dibuka, jalankan **Settings -> Use GitDesktop as an MCP server -> Add to PATH**. Verifikasi dari terminal baru dengan `timeout 5 gitdesktop-mcp mcp </dev/null; echo "exit: $status"`.
 
-### 2. gitrs-mcp dan mcp-filesystem-server
+### 2. multi-git-mcp dan mcp-filesystem-server
 
 ```bash
 brew install prasenjit-net/tap/gitrs-mcp
@@ -270,17 +263,17 @@ Buka `https://chat.deepseek.com`, buka panel Web MCP Bridge, klik **Inject instr
 
 ## Alur kerja
 
-1. AI membaca status dan file yang relevan lewat tool yang diteruskan GitDesktop.
-2. AI mengubah file lewat filesystem.
+1. AI membaca status dan file yang relevan lewat tool `git` dan `filesystem`.
+2. AI mengubah file lewat `filesystem`.
 3. Manusia menjalankan pengujian.
-4. AI membaca diff.
-5. Manusia menyetujui staging dan commit.
+4. AI membaca diff via `git`.
+5. Manusia menyetujui staging dan commit via `gitdesktop` atau `git`.
 
 Detail: `docs/alur-kerja.md`.
 
 ## Keamanan
 
-- Batasi filesystem ke direktori repo saja.
+- Batasi `filesystem` ke direktori yang diinginkan.
 - Jangan pernah mengirim kredensial, API key, atau `.env` ke chat.
 - Aktifkan `--allow-write` gitrs hanya saat diperlukan.
 - Setujui manual setiap operasi destruktif.
@@ -289,7 +282,7 @@ Checklist lengkap: `docs/keamanan.md`.
 
 ## Dokumentasi
 
-- `docs/arsitektur.md` — topologi hub GitDesktop dan pembagian peran
+- `docs/arsitektur.md` — topologi tiga jalur independen dan pembagian peran
 - `docs/keamanan.md` — checklist dan model ancaman
 - `docs/alur-kerja.md` — urutan kerja dan pola hemat payload
 - `docs/privasi.md` — istilah yang akurat dan batas privasi
