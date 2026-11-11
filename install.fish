@@ -158,30 +158,32 @@ else
 end
 
 # ------------------------------------------------------------
-# 5. GitDesktop (hub MCP, wajib)
+# 5. GitDesktop (hub MCP, wajib) — hanya lewat rilis resmi
 # ------------------------------------------------------------
-langkah "Memasang GitDesktop (hub MCP)"
-if ada gitdesktop || ada gitdesktop-mcp
-    ok "GitDesktop sudah terpasang"
-else
-    if ada paru
-        paru -S --needed --noconfirm gitdesktop-bin
-        and set -a manifest_lines "pacman gitdesktop-bin"
-    else if ada yay
-        yay -S --needed --noconfirm gitdesktop-bin
-        and set -a manifest_lines "pacman gitdesktop-bin"
-    else if ada flatpak
-        flatpak install -y flathub io.github.thebguy.GitDesktop
-        and set -a manifest_lines "flatpak io.github.thebguy.GitDesktop"
-    else
-        warn "Tidak ada paru/yay/flatpak. Pasang GitDesktop manual dari https://github.com/theBGuy/GitDesktop"
-    end
-end
-
+# Paket AUR `gitdesktop-bin` sudah usang (terakhir sinkron sekitar awal 2025)
+# dan Flatpak `io.github.thebguy.GitDesktop` tidak tersedia di Flathub.
+# Satu-satunya sumber yang andal adalah halaman rilis resmi di GitHub.
+langkah "Memeriksa GitDesktop (hub MCP, wajib)"
 if ada gitdesktop-mcp
     ok "gitdesktop-mcp tersedia di "(command -v gitdesktop-mcp)
+else if ada gitdesktop
+    warn "GitDesktop GUI ada di "(command -v gitdesktop)", tetapi `gitdesktop-mcp` tidak ditemukan di PATH."
+    warn "Buka GitDesktop -> Settings -> Use GitDesktop as an MCP server -> Add to PATH, lalu buka terminal baru."
 else
-    warn "gitdesktop-mcp belum ada di PATH. Pastikan GitDesktop terpasang dan menyediakan binary ini, lalu buka terminal baru."
+    warn "GitDesktop belum terpasang. Installer ini TIDAK mencoba memasangnya otomatis."
+    warn "Alasannya: paket AUR gitdesktop-bin sudah usang, dan Flatpak io.github.thebguy.GitDesktop tidak tersedia di Flathub."
+    warn "Unduh AppImage dari halaman rilis resmi:"
+    warn "  https://github.com/theBGuy/GitDesktop/releases/latest"
+    warn "Contoh di CachyOS/Arch (x86_64):"
+    warn "  mkdir -p ~/Applications"
+    warn "  mv ~/Downloads/GitDesktop_<versi>_amd64.AppImage ~/Applications/GitDesktop.AppImage"
+    warn "  chmod +x ~/Applications/GitDesktop.AppImage"
+    warn "  ~/Applications/GitDesktop.AppImage"
+    warn "Setelah GUI terbuka: Settings -> Use GitDesktop as an MCP server -> Add to PATH."
+    warn "Pastikan ~/.local/bin ada di PATH (fish_add_path ~/.local/bin), lalu buka terminal baru."
+    warn "Verifikasi dengan: gitdesktop-mcp --version"
+    warn ""
+    warn "Instalasi bridge akan tetap dilanjutkan, tetapi bridge tidak bisa start sampai gitdesktop-mcp tersedia."
 end
 
 # ------------------------------------------------------------
@@ -266,6 +268,9 @@ langkah "Selesai"
 printf '\nSumber bridge: %s\n' $BRIDGE_LABEL
 printf 'Port kontrol: %d · launcher: %d · hub: %d\n\n' $CONTROL_PORT $LAUNCHER_PORT $HUB_PORT
 printf 'Langkah manual yang tersisa:\n\n'
+if not ada gitdesktop-mcp
+    printf '0. Pasang GitDesktop dari rilis resmi (lihat peringatan di atas), jalankan Settings -> Use GitDesktop as an MCP server -> Add to PATH, lalu buka terminal baru.\n\n'
+end
 printf '1. Daftarkan server anak di GitDesktop:\n'
 printf '   - Buka GitDesktop -> Settings -> MCP\n'
 printf '   - Tempel isi %s\n\n' $snippet_path
