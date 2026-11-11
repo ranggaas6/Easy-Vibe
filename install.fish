@@ -60,7 +60,7 @@ if gh_token_resolve $tok_args
 end
 if test -n "$GH_TOKEN"
     if not gh_token_validate $GH_TOKEN
-        printf '[GAGAL] Format token tidak valid (harus ghp_ atau github_pat_)\n' >&2
+        printf '[GAGAL] Format token tidak valid (ghp_ atau github_pat_)\n' >&2
         exit 1
     end
     if test -n "$CLI_TOKEN"; or not test -f "$TOKEN_FILE"
@@ -69,7 +69,6 @@ if test -n "$GH_TOKEN"
     end
 else
     printf '[PERINGATAN] Token GitHub tidak diberikan. Clone repo private akan gagal.\n'
-    printf 'Gunakan: fish install.fish --github-token ghp_xxx\n'
 end
 
 # 1. Sumber bridge
@@ -87,7 +86,6 @@ else
     set -l BRIDGE_LABEL "fork"
 end
 
-# 1a. Validasi
 if not test -d "$REPO_PATH/.git"
     printf '[GAGAL] Bukan repositori Git: %s\n' $REPO_PATH >&2
     exit 1
@@ -97,7 +95,6 @@ if not command -v pacman >/dev/null 2>&1
     exit 1
 end
 
-# 1b. Bersihkan
 if test $CLEAN -eq 1
     if test -f "$SCRIPT_DIR/uninstall.fish"
         fish "$SCRIPT_DIR/uninstall.fish" --yes
@@ -118,68 +115,50 @@ if test -n "$GH_TOKEN"
     set -a manifest_lines "github-token-file $TOKEN_FILE"
 end
 
-# 2. Prasyarat
-install_prasyarat
-or begin
-    printf '[GAGAL] Prasyarat dasar gagal\n' >&2
-    exit 1
-end
-
-# 3. Tool MCP
+install_prasyarat; or exit 1
 install_gitrs
 install_filesystem
 
-# 4. GitDesktop
-printf '\n== Memasang GitDesktop (hub MCP) ==\n'
+printf '\n== Memasang GitDesktop ==\n'
 install_gitdesktop "$HOME/Applications/GitDesktop.AppImage" "$HOME/.local/bin/gitdesktop-mcp"
 
-# 5. Bridge
-install_bridge $BRIDGE_REPO $BRIDGE_DIR $VENV_DIR $GH_TOKEN
-or begin
-    printf '[GAGAL] Bridge gagal disiapkan\n' >&2
-    exit 1
-end
+install_bridge $BRIDGE_REPO $BRIDGE_DIR $VENV_DIR $GH_TOKEN; or exit 1
 
-# 6. servers.json
 printf '\n== Menulis servers.json ==\n'
 printf '{\n  "control_port": %d,\n  "launcher_port": %d,\n  "servers": [\n    {\n      "name": "gitdesktop",\n      "port": %d,\n      "command": ["gitdesktop-mcp"]\n    }\n  ]\n}\n' $CONTROL_PORT $LAUNCHER_PORT $HUB_PORT > "$BRIDGE_DIR/server/servers.json"
-printf '[OK] servers.json ditulis\n'
 
-# 7. Snippet server anak
+# Snippet referensi (di ~/.easy-vibe)
 set -l snippet_path "$INSTALL_DIR/gitdesktop-mcp-servers.json"
 printf '{\n  "mcpServers": {\n    "gitrs": {\n      "command": "gitrs-mcp",\n      "args": ["--repo", "%s"]\n    },\n    "filesystem": {\n      "command": "mcp-filesystem-server",\n      "args": ["%s"]\n    }\n  }\n}\n' "$REPO_PATH" "$REPO_PATH" > $snippet_path
-printf '[OK] Snippet: %s\n' $snippet_path
 
-# 8. Launcher
+# .mcp.json di root repo: dibaca otomatis oleh GitDesktop discover_mcp_servers
+set -l repo_mcp "$REPO_PATH/.mcp.json"
+printf '{\n  "mcpServers": {\n    "gitrs": {\n      "command": "gitrs-mcp",\n      "args": ["--repo", "%s"]\n    },\n    "filesystem": {\n      "command": "mcp-filesystem-server",\n      "args": ["%s"]\n    }\n  }\n}\n' "$REPO_PATH" "$REPO_PATH" > $repo_mcp
+printf '[OK] .mcp.json ditulis di root repo (GitDesktop akan mendeteksinya otomatis)\n'
+
 set -l launcher "$INSTALL_DIR/start-easy-vibe.fish"
 printf '#!/usr/bin/env fish\ncd "%s"\nexec "%s/bin/python" server/mcp_ws_bridge.py --config server/servers.json\n' "$BRIDGE_DIR" "$VENV_DIR" > $launcher
 chmod +x $launcher
-printf '[OK] Launcher: %s\n' $launcher
 
-# 9. Layanan
 if test "$EASY_VIBE_INSTALL_SERVICE" = "1"
     pushd $BRIDGE_DIR
     "$VENV_DIR/bin/python" server/install_service.py
     popd
     set -a manifest_lines "systemd-user easy-vibe"
-    printf '[OK] Layanan dipasang\n'
-else
-    printf '[PERINGATAN] Layanan tidak dipasang (set EASY_VIBE_INSTALL_SERVICE=1)\n'
 end
 
-# 10. Manifest
 printf '%s\n' $manifest_lines > "$MANIFEST"
-printf '[OK] Manifest: %s\n' $MANIFEST
 
-# 11. Ringkasan
 printf '\n== Selesai ==\n'
-printf 'Bridge: %s | port kontrol %d, launcher %d, hub %d\n' $BRIDGE_LABEL $CONTROL_PORT $LAUNCHER_PORT $HUB_PORT
+printf 'Bridge: %s | kontrol %d, launcher %d, hub %d\n' $BRIDGE_LABEL $CONTROL_PORT $LAUNCHER_PORT $HUB_PORT
 if test -n "$GH_TOKEN"
     printf 'Token GitHub: %s\n' $TOKEN_FILE
 end
 if not command -v gitdesktop-mcp >/dev/null 2>&1
-    printf 'Langkah manual: buka GitDesktop -> Settings -> Use GitDesktop as an MCP server -> Add to PATH\n'
+    printf 'Manual: buka GitDesktop -> Settings -> Use GitDesktop as an MCP server -> Add to PATH\n'
 end
-printf 'Snippet server anak: %s\n' $snippet_path
-printf 'Ekstensi browser: %s\n' "$BRIDGE_DIR"
-printf 'Launcher: %s\n\n' $launcher
+printf '\nLangkah manual yang tersisa:\n'
+printf '1. Buka repo ini di GitDesktop, lalu Settings -> MCP -> klik Import (.mcp.json sudah terdeteksi)\n'
+printf '2. chrome://extensions -> Load unpacked -> %s\n' "$BRIDGE_DIR"
+printf '3. https://chat.deepseek.com -> panel bridge -> Inject instructions\n\n'
+printf 'Launcher: %s\n' $launcher
