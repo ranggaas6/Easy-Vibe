@@ -72,18 +72,24 @@ else
 end
 
 # 1. Sumber bridge
+# PENTING: set -l di dalam blok if pada fish bersifat lokal ke blok itu saja.
+# Deklarasikan di level skrip, isi ulang dengan `set` (tanpa -l) di dalam blok.
+set -l BRIDGE_REPO "https://github.com/ranggaas6/web-mcp-bridge"
+set -l CONTROL_PORT 8199
+set -l LAUNCHER_PORT 8198
+set -l HUB_PORT 8190
+set -l BRIDGE_LABEL "fork"
 if test $USE_UPSTREAM -eq 1
-    set -l BRIDGE_REPO "https://github.com/AstraxOf/web-mcp-bridge"
-    set -l CONTROL_PORT 8099
-    set -l LAUNCHER_PORT 8098
-    set -l HUB_PORT 8090
-    set -l BRIDGE_LABEL "upstream"
-else
-    set -l BRIDGE_REPO "https://github.com/ranggaas6/web-mcp-bridge"
-    set -l CONTROL_PORT 8199
-    set -l LAUNCHER_PORT 8198
-    set -l HUB_PORT 8190
-    set -l BRIDGE_LABEL "fork"
+    set BRIDGE_REPO "https://github.com/AstraxOf/web-mcp-bridge"
+    set CONTROL_PORT 8099
+    set LAUNCHER_PORT 8098
+    set HUB_PORT 8090
+    set BRIDGE_LABEL "upstream"
+end
+
+if test -z "$BRIDGE_REPO"
+    printf '[GAGAL] BRIDGE_REPO kosong — bug scoping.\n' >&2
+    exit 1
 end
 
 if not test -d "$REPO_PATH/.git"
@@ -122,16 +128,16 @@ install_filesystem
 printf '\n== Memasang GitDesktop ==\n'
 install_gitdesktop "$HOME/Applications/GitDesktop.AppImage" "$HOME/.local/bin/gitdesktop-mcp"
 
+printf '\n== Web MCP Bridge ==\n'
+printf 'Sumber: %s\n' $BRIDGE_REPO
 install_bridge $BRIDGE_REPO $BRIDGE_DIR $VENV_DIR $GH_TOKEN; or exit 1
 
 printf '\n== Menulis servers.json ==\n'
 printf '{\n  "control_port": %d,\n  "launcher_port": %d,\n  "servers": [\n    {\n      "name": "gitdesktop",\n      "port": %d,\n      "command": ["gitdesktop-mcp"]\n    }\n  ]\n}\n' $CONTROL_PORT $LAUNCHER_PORT $HUB_PORT > "$BRIDGE_DIR/server/servers.json"
 
-# Snippet referensi (di ~/.easy-vibe)
 set -l snippet_path "$INSTALL_DIR/gitdesktop-mcp-servers.json"
 printf '{\n  "mcpServers": {\n    "gitrs": {\n      "command": "gitrs-mcp",\n      "args": ["--repo", "%s"]\n    },\n    "filesystem": {\n      "command": "mcp-filesystem-server",\n      "args": ["%s"]\n    }\n  }\n}\n' "$REPO_PATH" "$REPO_PATH" > $snippet_path
 
-# .mcp.json di root repo: dibaca otomatis oleh GitDesktop discover_mcp_servers
 set -l repo_mcp "$REPO_PATH/.mcp.json"
 printf '{\n  "mcpServers": {\n    "gitrs": {\n      "command": "gitrs-mcp",\n      "args": ["--repo", "%s"]\n    },\n    "filesystem": {\n      "command": "mcp-filesystem-server",\n      "args": ["%s"]\n    }\n  }\n}\n' "$REPO_PATH" "$REPO_PATH" > $repo_mcp
 printf '[OK] .mcp.json ditulis di root repo (GitDesktop akan mendeteksinya otomatis)\n'
