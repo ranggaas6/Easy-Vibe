@@ -55,9 +55,6 @@ if test $DRY -eq 1
     say "mode dry-run"
 end
 
-# ------------------------------------------------------------
-# Manifest-driven removal (default)
-# ------------------------------------------------------------
 if test -f "$MANIFEST"
     say "== Artefak dari manifest =="
     for line in (cat "$MANIFEST")
@@ -78,7 +75,7 @@ if test -f "$MANIFEST"
     end
 else
     say "== Manifest tidak ditemukan =="
-    say "(instalasi lama; gunakan flag eksplisit bila perlu)"
+    say "(instalasi lama; akan menggunakan fallback)"
 end
 
 say "== Layanan systemd pengguna =="
@@ -143,16 +140,35 @@ if test $GD -eq 1
 end
 
 if test $FULL -eq 1
-    say "== Paket pacman dasar (hanya yang baru dipasang oleh Easy-Vibe) =="
+    say "== Paket pacman dasar =="
+    
+    # Fallback: jika manifest tidak mencatat paket (instalasi lama),
+    # cek daftar paket bawaan yang mungkin terpasang oleh Easy-Vibe.
     if test (count $PKGS_TO_REMOVE) -eq 0
-        say "Tidak ada paket pacman yang perlu dihapus (semua sudah ada sebelumnya)."
+        say "[INFO] Manifest tidak mencatat paket pacman baru."
+        say "[INFO] Memeriksa paket bawaan Easy-Vibe yang sedang terpasang..."
+        set -l default_pkgs git python python-pip go curl base-devel
+        for p in $default_pkgs
+            if pacman -Qi $p >/dev/null 2>&1
+                set -a PKGS_TO_REMOVE $p
+            end
+        end
+    end
+
+    if test (count $PKGS_TO_REMOVE) -eq 0
+        say "Tidak ada paket pacman yang perlu dihapus."
     else
-        say "Paket yang akan dihapus: $PKGS_TO_REMOVE"
+        say "Paket pacman berikut terdeteksi dan akan dihapus:"
+        for p in $PKGS_TO_REMOVE
+            say "  - $p"
+        end
+        
         if test $YES -eq 1
             set -l jawab y
         else
             read -l -P "Hapus paket pacman di atas? [y/N] " jawab
         end
+        
         if test "$jawab" = "y"; or test "$jawab" = "Y"
             if test $DRY -eq 0
                 sudo pacman -Rns --noconfirm $PKGS_TO_REMOVE
@@ -160,6 +176,8 @@ if test $FULL -eq 1
             else
                 say "akan dihapus via pacman: $PKGS_TO_REMOVE"
             end
+        else
+            say "Penghapusan paket pacman dibatalkan."
         end
     end
 end
