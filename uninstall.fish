@@ -6,6 +6,7 @@ set -g TOOLS 0
 set -g GD 0
 set -g FULL 0
 set -g YES 0
+set -g PKGS_TO_REMOVE
 
 for a in $argv
     switch $a
@@ -57,10 +58,6 @@ end
 # ------------------------------------------------------------
 # Manifest-driven removal (default)
 # ------------------------------------------------------------
-# install.fish mencatat setiap artefak yang ia buat ke manifest.
-# Uninstaller default cukup menghapus persis apa yang tercatat,
-# sehingga GitDesktop ikut terhapus otomatis bila installer
-# yang memasangnya.
 if test -f "$MANIFEST"
     say "== Artefak dari manifest =="
     for line in (cat "$MANIFEST")
@@ -75,6 +72,8 @@ if test -f "$MANIFEST"
                 if test $TOOLS -eq 1
                     rm_path $parts[2]
                 end
+            case pacman-pkg
+                set -a PKGS_TO_REMOVE $parts[2]
         end
     end
 else
@@ -126,10 +125,6 @@ end
 
 if test $GD -eq 1
     say "== GitDesktop (flag eksplisit) =="
-    # Flag ini dipertahankan sebagai jalur warisan untuk instalasi lama
-    # yang manifest-nya belum mencatat GitDesktop. Pada instalasi baru,
-    # pembersihan GitDesktop sudah dilakukan otomatis lewat manifest.
-
     set -l launcher "$HOME/.local/bin/gitdesktop-mcp"
     if test -L "$launcher" -o -f "$launcher"
         rm_path "$launcher"
@@ -145,45 +140,26 @@ if test $GD -eq 1
     if test -e "$desktop_file"
         rm_path "$desktop_file"
     end
-
-    if pacman -Qi gitdesktop-bin >/dev/null 2>&1
-        if test $DRY -eq 0
-            if command -v paru >/dev/null 2>&1
-                paru -Rns --noconfirm gitdesktop-bin
-            else if command -v yay >/dev/null 2>&1
-                yay -Rns --noconfirm gitdesktop-bin
-            end
-            say "gitdesktop-bin dihapus (paket warisan)"
-        else
-            say "akan dihapus: gitdesktop-bin (paket warisan)"
-        end
-    end
-    if command -v flatpak >/dev/null 2>&1
-        if flatpak list --app 2>/dev/null | string match -q "*GitDesktop*"
-            if test $DRY -eq 0
-                flatpak uninstall -y io.github.thebguy.GitDesktop
-                say "flatpak GitDesktop dihapus (paket warisan)"
-            else
-                say "akan dihapus: io.github.thebguy.GitDesktop (paket warisan)"
-            end
-        end
-    end
 end
 
 if test $FULL -eq 1
-    say "== Paket pacman dasar =="
-    say "git python python-pip go curl base-devel"
-    if test $YES -eq 1
-        set -l jawab y
+    say "== Paket pacman dasar (hanya yang baru dipasang oleh Easy-Vibe) =="
+    if test (count $PKGS_TO_REMOVE) -eq 0
+        say "Tidak ada paket pacman yang perlu dihapus (semua sudah ada sebelumnya)."
     else
-        read -l -P "Hapus paket pacman dasar? [y/N] " jawab
-    end
-    if test "$jawab" = "y"; or test "$jawab" = "Y"
-        if test $DRY -eq 0
-            sudo pacman -Rns --noconfirm git python python-pip go curl base-devel
-            say "paket pacman dihapus"
+        say "Paket yang akan dihapus: $PKGS_TO_REMOVE"
+        if test $YES -eq 1
+            set -l jawab y
         else
-            say "akan dihapus via pacman"
+            read -l -P "Hapus paket pacman di atas? [y/N] " jawab
+        end
+        if test "$jawab" = "y"; or test "$jawab" = "Y"
+            if test $DRY -eq 0
+                sudo pacman -Rns --noconfirm $PKGS_TO_REMOVE
+                say "paket pacman dihapus"
+            else
+                say "akan dihapus via pacman: $PKGS_TO_REMOVE"
+            end
         end
     end
 end

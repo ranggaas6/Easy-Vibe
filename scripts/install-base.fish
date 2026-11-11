@@ -19,11 +19,27 @@ end
 
 function install_prasyarat
     ib_langkah "Memasang prasyarat dasar"
-    sudo pacman -S --needed --noconfirm git python python-pip go curl base-devel
+    set -l paket git python python-pip go curl base-devel
+    set -l newly_installed
+
+    for p in $paket
+        if not pacman -Qi $p >/dev/null 2>&1
+            set -a newly_installed $p
+        end
+    end
+
+    sudo pacman -S --needed --noconfirm $paket
     or begin
         printf '[GAGAL] Paket dasar gagal dipasang\n' >&2
         return 1
     end
+
+    if test (count $newly_installed) -gt 0
+        for p in $newly_installed
+            set -a manifest_lines "pacman-pkg $p"
+        end
+    end
+
     ib_ok "Paket dasar terpasang"
 end
 
