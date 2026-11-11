@@ -123,7 +123,7 @@ printf '\n== Web MCP Bridge ==\n'
 install_bridge $BRIDGE_REPO $BRIDGE_DIR $VENV_DIR $GH_TOKEN; or exit 1
 
 printf '\n== Memasang library mcp untuk multi-git ==\n'
-"$VENV_DIR/bin/pip" install mcp >/dev/null 2>&1
+"$VENV_DIR/bin/pip" install "mcp<2" >/dev/null 2>&1
 or begin
     printf '[GAGAL] Gagal menginstal library mcp\n' >&2
     exit 1
