@@ -129,7 +129,6 @@ or begin
     exit 1
 end
 
-# Buat wrapper shell agar Bridge bisa spawn dengan andal
 set -l wrapper "$INSTALL_DIR/run-multi-git.sh"
 printf '#!/bin/bash\nexec "%s/bin/python" -u "%s"\n' "$VENV_DIR" "$SCRIPT_DIR/scripts/multi-git-mcp.py" > "$wrapper"
 chmod +x "$wrapper"
@@ -143,7 +142,7 @@ else
     printf '[PERINGATAN] Multi-git merespons: %s\n' "$test_out"
 end
 
-printf '\n== Menulis servers.json (3 server terpisah) ==\n'
+printf '\n== Menulis servers.json ==\n'
 printf '{\n  "control_port": %d,\n  "launcher_port": %d,\n  "servers": [\n    {\n      "name": "gitdesktop",\n      "port": %d,\n      "command": ["gitdesktop-mcp", "mcp", "--repo", "%s"]\n    },\n    {\n      "name": "git",\n      "port": %d,\n      "command": ["%s"]\n    },\n    {\n      "name": "filesystem",\n      "port": %d,\n      "command": ["mcp-filesystem-server", "%s"]\n    }\n  ]\n}\n' $CONTROL_PORT $LAUNCHER_PORT $HUB_PORT $REPO_PATH $GIT_PORT $wrapper $FS_PORT $HOME > "$BRIDGE_DIR/server/servers.json"
 
 printf '\n== Membersihkan child server di GitDesktop ==\n'
@@ -168,7 +167,12 @@ set -l launcher "$INSTALL_DIR/start-easy-vibe.fish"
 printf '#!/usr/bin/env fish\ncd "%s"\nexec "%s/bin/python" server/mcp_ws_bridge.py --config server/servers.json\n' "$BRIDGE_DIR" "$VENV_DIR" > $launcher
 chmod +x $launcher
 
+printf '\n== Menghentikan Bridge lama (jika berjalan) ==\n'
+pkill -f mcp_ws_bridge.py 2>/dev/null
+sleep 1
+printf '[OK]   Bridge lama dihentikan. Buka GitDesktop untuk menyalakan Bridge dengan konfigurasi baru.\n'
+
 printf '%s\n' $manifest_lines > "$MANIFEST"
 printf '\n== Selesai ==\n'
-printf 'Bridge sekarang punya 3 server: gitdesktop (%d), git (%d), filesystem (%d)\n' $HUB_PORT $GIT_PORT $FS_PORT
+printf 'Bridge punya 3 server: gitdesktop (%d), git (%d), filesystem (%d)\n' $HUB_PORT $GIT_PORT $FS_PORT
 printf 'Launcher manual: %s\n' $launcher
