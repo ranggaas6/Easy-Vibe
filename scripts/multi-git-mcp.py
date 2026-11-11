@@ -1,88 +1,138 @@
 #!/usr/bin/env python3
+import sys
+import json
 import subprocess
-from mcp.server.fastmcp import FastMCP
-
-mcp = FastMCP("multi-git")
 
 def run_git(repo_path, args):
     try:
         res = subprocess.run(
             ["git", "-C", repo_path] + args,
             capture_output=True,
-            text=True,
-            check=True
+            text=True
         )
-        return res.stdout or "(no output)"
-    except subprocess.CalledProcessError as e:
-        return f"[ERROR] Git command failed with exit code {e.returncode}\n{e.stderr}\n{e.stdout}"
+        if res.returncode == 0:
+            return {"content": [{"type": "text", "text": res.stdout or "(no output)"}]}
+        else:
+            return {"content": [{"type": "text", "text": res.stderr or "(error)"}], "isError": True}
     except Exception as e:
-        return f"[ERROR] {str(e)}"
+        return {"content": [{"type": "text", "text": str(e)}], "isError": True}
 
-@mcp.tool()
-def git_status(repo_path: str) -> str:
-    """Get the current Git status of a repository (branch, changes, etc)."""
-    return run_git(repo_path, ["status"])
+def handle_request(req):
+    method = req.get("method")
+    req_id = req.get("id")
 
-@mcp.tool()
-def git_diff(repo_path: str, staged: bool = False) -> str:
-    """Show the diff of changes in a repository. Set staged=true for staged changes only."""
-    args = ["diff"]
-    if staged:
-        args.append("--staged")
-    return run_git(repo_path, args)
+    if method == "initialize":
+        return {
+            "jsonrpc": "2.0",
+            "id": req_id,
+            "result": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {"tools": {}},
+                "serverInfo": {"name": "multi-git", "version": "1.0.0"}
+            }
+        }
 
-@mcp.tool()
-def git_log(repo_path: str, limit: int = 10) -> str:
-    """Show recent commit history of a repository."""
-    return run_git(repo_path, ["log", f"-n{limit}", "--oneline"])
+    if method == "tools/list":
+        return {
+            "jsonrpc": "2.0",
+            "id": req_id,
+            "result": {
+                "tools": [
+                    {
+                        "name": "git_status",
+                        "description": "Get git status of a repository",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {"repo_path": {"type": "string"}},
+                            "required": ["repo_path"]
+                        }
+                    },
+                    {
+                        "name": "git_diff",
+                        "description": "Get git diff of a repository",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "repo_path": {"type": "string"},
+                                "staged": {"type": "boolean"}
+                            },
+                            "required": ["repo_path"]
+                        }
+                    },
+                    {
+                        "name": "git_log",
+                        "description": "Get git log of a repository",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "repo_path": {"type": "string"},
+                                "limit": {"type": "integer"}
+                            },
+                            "required": ["repo_path"]
+                        }
+                    },
+                    {
+                        "name": "git_commit",
+                        "description": "Commit staged changes",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "repo_path": {"type": "string"},
+                                "message": {"type": "string"}
+                            },
+                            "required": ["repo_path", "message"]
+                        }
+                    }
+                ]
+            }
+        }
 
-@mcp.tool()
-def git_branch_list(repo_path: str) -> str:
-    """List all local branches in a repository."""
-    return run_git(repo_path, ["branch"])
+    if method == "tools/call":
+        params = req.get("params", {})
+        name = params.get("name")
+        args = params.get("arguments", {})
+        repo_path = args.get("repo_path")
 
-@mcp.tool()
-def git_branch_create(repo_path: str, branch_name: str, checkout: bool = True) -> str:
-    """Create a new branch in a repository, optionally checking it out."""
-    if checkout:
-        return run_git(repo_path, ["checkout", "-b", branch_name])
-    else:
-        return run_git(repo_path, ["branch", branch_name])
+        if name == "git_status":
+            result = run_git(repo_path, ["status"])
+        elif name == "git_diff":
+            cmd = ["diff"]
+            if args.get("staged"):
+                cmd.append("--staged")
+            result = run_git(repo_path, cmd)
+        elif name == "git_log":
+            limit = args.get("limit", 10)
+            result = run_git(repo_path, ["log", f"-n{limit}", "--oneline"])
+        elif name == "git_commit":
+            result = run_git(repo_path, ["commit", "-m", args.get("message", "commit")])
+        else:
+            result = {"content": [{"type": "text", "text": "Unknown tool"}], "isError": True}
 
-@mcp.tool()
-def git_checkout(repo_path: str, branch_name: str) -> str:
-    """Checkout an existing branch in a repository."""
-    return run_git(repo_path, ["checkout", branch_name])
+        return {
+            "jsonrpc": "2.0",
+            "id": req_id,
+            "result": result
+        }
 
-@mcp.tool()
-def git_add(repo_path: str, files: str = ".") -> str:
-    """Stage files for commit in a repository."""
-    return run_git(repo_path, ["add", files])
+    return {
+        "jsonrpc": "2.0",
+        "id": req_id,
+        "error": {"code": -32601, "message": "Method not found"}
+    }
 
-@mcp.tool()
-def git_commit(repo_path: str, message: str) -> str:
-    """Commit staged changes in a repository with a message."""
-    return run_git(repo_path, ["commit", "-m", message])
-
-@mcp.tool()
-def git_pull(repo_path: str) -> str:
-    """Pull changes from the remote in a repository."""
-    return run_git(repo_path, ["pull"])
-
-@mcp.tool()
-def git_push(repo_path: str) -> str:
-    """Push committed changes to the remote in a repository."""
-    return run_git(repo_path, ["push"])
-
-@mcp.tool()
-def git_read_file(repo_path: str, file_path: str) -> str:
-    """Read the contents of a file inside a repository."""
-    try:
-        full_path = f"{repo_path}/{file_path}"
-        with open(full_path, "r", encoding="utf-8") as f:
-            return f.read()
-    except Exception as e:
-        return f"[ERROR] Failed to read file: {str(e)}"
+def main():
+    for line in sys.stdin:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            req = json.loads(line)
+            res = handle_request(req)
+            if res:
+                sys.stdout.write(json.dumps(res) + "\n")
+                sys.stdout.flush()
+        except Exception:
+            pass
 
 if __name__ == "__main__":
-    mcp.run()
+    main()
