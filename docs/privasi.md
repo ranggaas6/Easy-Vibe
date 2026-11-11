@@ -27,10 +27,10 @@ Melainkan:
                      |
               Komputer lokal
                      |
-             File dan Git lokal
+       File, Git lokal, dan GUI Desktop
 ```
 
-Ketika DeepSeek membaca kode melalui filesystem MCP, hasil pembacaan dikirim kembali ke halaman chat dan menjadi bagian dari percakapan.
+Ketika DeepSeek membaca kode melalui `filesystem`, atau memeriksa riwayat Git melalui `git` atau `gitdesktop`, hasil pembacaan dikirim kembali ke halaman chat dan menjadi bagian dari percakapan.
 
 ## Yang memang benar
 
@@ -41,9 +41,9 @@ Ketika DeepSeek membaca kode melalui filesystem MCP, hasil pembacaan dikirim kem
 
 ## Yang tetap dapat keluar dari komputer
 
-- Potongan kode
-- Diff
-- Nama file
+- Potongan kode (dibaca via `filesystem`)
+- Diff, log, dan status Git (dibaca via `git` atau `gitdesktop`)
+- Nama file dan struktur direktori
 - Konfigurasi
 - Hasil tool yang diberikan kepada DeepSeek
 
@@ -66,6 +66,6 @@ Perbedaan ini krusial terutama bila proyek berisi kode komersial, kredensial, at
 
 1. Tentukan klasifikasi sensitivitas proyek.
 2. Jangan pernah mengirim kredensial, API key, atau `.env`.
-3. Pilih konteks yang dikirim ke model secara sadar.
+3. Pilih konteks yang dikirim ke model secara sadar (batasi `filesystem` jika tidak ingin seluruh `$HOME` terbaca).
 4. Aktifkan opsi menolak penggunaan data untuk pelatihan bila tersedia.
 5. Untuk proyek sangat sensitif, pertimbangkan model lokal penuh, bukan arsitektur ini.
