@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 import subprocess
-from mcp.server.mcpserver import MCPServer
+from mcp.server.fastmcp import FastMCP
 
-mcp = MCPServer("multi-git")
+mcp = FastMCP("multi-git")
 
 def run_git(repo_path, args):
     try:
