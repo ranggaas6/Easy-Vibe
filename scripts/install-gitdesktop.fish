@@ -15,6 +15,19 @@ function install_gitdesktop -a appimage_path link_path
     if ada_gd gitdesktop-mcp
         printf '[OK]   gitdesktop-mcp sudah tersedia di %s\n' (command -v gitdesktop-mcp)
         set -a manifest_lines "gitdesktop-mcp-link "(command -v gitdesktop-mcp)
+        
+        # Pastikan .desktop tetap dibuat meski AppImage sudah ada
+        set -l real_appimage (readlink -f (command -v gitdesktop-mcp))
+        set -l desktop_dir "$HOME/.local/share/applications"
+        set -l desktop_file "$desktop_dir/gitdesktop.desktop"
+        mkdir -p $desktop_dir
+        printf '[Desktop Entry]\nType=Application\nName=GitDesktop\nComment=AI-native Git desktop client\nExec="%s"\nIcon=git\nTerminal=false\nCategories=Development;VersionControl;\nStartupWMClass=GitDesktop\n' "$real_appimage" > "$desktop_file"
+        chmod +x "$desktop_file"
+        set -a manifest_lines "gitdesktop-desktop-file $desktop_file"
+        if command -v update-desktop-database >/dev/null 2>&1
+            update-desktop-database $desktop_dir >/dev/null 2>&1
+        end
+        printf '[OK]   Ikon menu aplikasi dibuat di %s\n' $desktop_file
         return 0
     end
 
@@ -58,10 +71,7 @@ function install_gitdesktop -a appimage_path link_path
     printf '[OK]   Symlink gitdesktop-mcp dibuat di %s\n' $link_path
     set -a manifest_lines "gitdesktop-mcp-link $link_path"
 
-    # Verifikasi mode MCP, bukan --version.
-    # AppImage Tauri: `--version` tidak ditangani -> GUI terbuka -> menggantung.
-    # Subcommand `mcp` dengan stdin ditutup -> "connection closed: initialize request" -> exit 1.
-    # exit 0/1 = CLI MCP aktif; exit 124 = timeout (GUI terbuka, salah); 127 = tidak dapat dieksekusi.
+    # Verifikasi mode MCP
     set -l gd_rc 124
     if test -x "$link_path"
         timeout 5 "$link_path" mcp </dev/null >/dev/null 2>&1
@@ -75,5 +85,18 @@ function install_gitdesktop -a appimage_path link_path
     else
         printf '[PERINGATAN] gitdesktop-mcp tidak dapat dieksekusi di %s\n' $link_path
     end
+
+    # Buat file .desktop untuk ikon menu aplikasi
+    set -l desktop_dir "$HOME/.local/share/applications"
+    set -l desktop_file "$desktop_dir/gitdesktop.desktop"
+    mkdir -p $desktop_dir
+    printf '[Desktop Entry]\nType=Application\nName=GitDesktop\nComment=AI-native Git desktop client\nExec="%s"\nIcon=git\nTerminal=false\nCategories=Development;VersionControl;\nStartupWMClass=GitDesktop\n' "$appimage_path" > "$desktop_file"
+    chmod +x "$desktop_file"
+    set -a manifest_lines "gitdesktop-desktop-file $desktop_file"
+    if command -v update-desktop-database >/dev/null 2>&1
+        update-desktop-database $desktop_dir >/dev/null 2>&1
+    end
+    printf '[OK]   Ikon menu aplikasi dibuat di %s\n' $desktop_file
+
     return 0
 end

@@ -69,7 +69,7 @@ if test -f "$MANIFEST"
             continue
         end
         switch $parts[1]
-            case gitdesktop-appimage gitdesktop-mcp-link
+            case gitdesktop-appimage gitdesktop-mcp-link gitdesktop-desktop-file
                 rm_path $parts[2]
             case mcp-filesystem-server gitrs-mcp
                 if test $TOOLS -eq 1
@@ -139,6 +139,11 @@ if test $GD -eq 1
         if test -e "$candidate"
             rm_path "$candidate"
         end
+    end
+
+    set -l desktop_file "$HOME/.local/share/applications/gitdesktop.desktop"
+    if test -e "$desktop_file"
+        rm_path "$desktop_file"
     end
 
     if pacman -Qi gitdesktop-bin >/dev/null 2>&1
