@@ -20,8 +20,8 @@ function install_gitdesktop -a appimage_path link_path
         end
         
         mkdir -p (dirname $link_path)
-        # Skrip wrapper: jalankan bridge -> buka GUI -> matikan bridge saat GUI ditutup
-        printf '#!/usr/bin/env fish\n# Wrapper otomatis Easy-Vibe\nif test (count $argv) -gt 0; and test "$argv[1]" = "mcp"\n    exec "%s" $argv\nend\nfish "%s/start-easy-vibe.fish" &>/dev/null &\nset -l pid $last_pid\n"%s" $argv\nkill $pid 2>/dev/null\npkill -f mcp_ws_bridge.py 2>/dev/null\n' "$real_appimage" "$HOME/.easy-vibe" "$real_appimage" > "$link_path"
+        # Skrip wrapper yang aman: jalankan GUI dulu, tunggu port, baru jalankan bridge
+        printf '#!/usr/bin/env fish\n# Wrapper otomatis Easy-Vibe\nif test (count $argv) -gt 0; and test "$argv[1]" = "mcp"\n    exec "%s" $argv\nend\n\n"%s" $argv &>/dev/null &\nset -l gd_pid $last_pid\n\nfor i in (seq 1 20)\n    if ss -tln | grep -q ":8190 "\n        break\n    end\n    sleep 0.5\nend\n\nif kill -0 $gd_pid 2>/dev/null\n    fish "%s/start-easy-vibe.fish" &>/dev/null &\n    set -l bridge_pid $last_pid\n    wait $gd_pid\n    kill $bridge_pid 2>/dev/null\nend\n' "$real_appimage" "$real_appimage" "$HOME/.easy-vibe" > "$link_path"
         chmod +x "$link_path"
         printf '[OK]   Wrapper gitdesktop-mcp diperbarui di %s\n' $link_path
         set -a manifest_lines "gitdesktop-mcp-link $link_path"
@@ -74,8 +74,8 @@ function install_gitdesktop -a appimage_path link_path
     printf '[OK]   SHA-256: %s\n' $sha
 
     mkdir -p (dirname $link_path)
-    # Buat skrip wrapper
-    printf '#!/usr/bin/env fish\n# Wrapper otomatis Easy-Vibe\nif test (count $argv) -gt 0; and test "$argv[1]" = "mcp"\n    exec "%s" $argv\nend\nfish "%s/start-easy-vibe.fish" &>/dev/null &\nset -l pid $last_pid\n"%s" $argv\nkill $pid 2>/dev/null\npkill -f mcp_ws_bridge.py 2>/dev/null\n' "$appimage_path" "$HOME/.easy-vibe" "$appimage_path" > "$link_path"
+    # Buat skrip wrapper yang aman
+    printf '#!/usr/bin/env fish\n# Wrapper otomatis Easy-Vibe\nif test (count $argv) -gt 0; and test "$argv[1]" = "mcp"\n    exec "%s" $argv\nend\n\n"%s" $argv &>/dev/null &\nset -l gd_pid $last_pid\n\nfor i in (seq 1 20)\n    if ss -tln | grep -q ":8190 "\n        break\n    end\n    sleep 0.5\nend\n\nif kill -0 $gd_pid 2>/dev/null\n    fish "%s/start-easy-vibe.fish" &>/dev/null &\n    set -l bridge_pid $last_pid\n    wait $gd_pid\n    kill $bridge_pid 2>/dev/null\nend\n' "$appimage_path" "$appimage_path" "$HOME/.easy-vibe" > "$link_path"
     chmod +x "$link_path"
     fish_add_path (dirname $link_path)
     printf '[OK]   Wrapper gitdesktop-mcp dibuat di %s\n' $link_path
