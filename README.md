@@ -55,8 +55,8 @@ Jika Anda ingin memakai upstream alih-alih fork, jalankan installer dengan `--up
 | DeepSeek Web Chat | Analisis, perencanaan, penulisan kode (AI cloud) | Browser |
 | Web MCP Bridge (fork) | Tool signature ringkas, izin, validasi | `servers.json` bridge |
 | GitDesktop MCP | Hub: teruskan tool anak + tool Git/forge sendiri | `servers.json` bridge |
-| gitrs-mcp | Status, diff, branch, staging, commit | Settings MCP GitDesktop |
-| mcp-filesystem-server | Baca, tulis, modifikasi file | Settings MCP GitDesktop |
+| gitrs-mcp | Status, diff, branch, staging, commit | `.mcp.json` repo / Settings MCP |
+| mcp-filesystem-server | Baca, tulis, modifikasi file | `.mcp.json` repo / Settings MCP |
 | GitDesktop GUI | Review visual oleh manusia | Aplikasi desktop |
 
 ## Prasyarat
@@ -166,13 +166,21 @@ Installer akan:
 4. **Memasang GitDesktop otomatis**: unduh AppImage x86_64 terbaru, pasang di `~/Applications/GitDesktop.AppImage`, buat symlink `~/.local/bin/gitdesktop-mcp`, lalu verifikasi.
 5. Meng-clone Web MCP Bridge dari fork (atau upstream bila `--upstream`) dan memasang dependensi Python di venv `~/.easy-vibe/venv` (menghindari blokir PEP 668).
 6. Menulis `servers.json` dengan **satu entry: gitdesktop**, port `8199`/`8198`/`8190` (atau `8099`/`8098`/`8090` bila `--upstream`).
-7. Menulis snippet `~/.easy-vibe/gitdesktop-mcp-servers.json` berisi `gitrs` dan `filesystem` untuk ditempel ke Settings MCP GitDesktop.
-8. Membuat launcher `~/.easy-vibe/start-easy-vibe.fish`.
-9. Menulis manifest `~/.easy-vibe/manifest.txt` untuk uninstaller, termasuk entri `gitdesktop-appimage` dan `gitdesktop-mcp-link`.
+7. **Menulis `.mcp.json` di root repo** berisi `gitrs` dan `filesystem`. GitDesktop akan mendeteksinya otomatis saat repo dibuka (lihat `discover_mcp_servers` di source GitDesktop).
+8. Menulis snippet referensi `~/.easy-vibe/gitdesktop-mcp-servers.json` (isi sama dengan `.mcp.json`).
+9. Membuat launcher `~/.easy-vibe/start-easy-vibe.fish`.
+10. Menulis manifest `~/.easy-vibe/manifest.txt` untuk uninstaller, termasuk entri `gitdesktop-appimage` dan `gitdesktop-mcp-link`.
 
 ### Daftarkan server anak di GitDesktop
 
-Setelah installer selesai, buka **GitDesktop -> Settings -> MCP** dan tempel isi `~/.easy-vibe/gitdesktop-mcp-servers.json`:
+Installer sudah menulis **`.mcp.json` di root repo**. GitDesktop membaca berkas itu lewat command internal `discover_mcp_servers` ketika repo dibuka, sehingga langkah yang tersisa hanya **satu klik**:
+
+1. Buka repo `Easy-Vibe` di GitDesktop.
+2. Buka **Settings -> MCP**.
+3. Klik **Import** pada server `gitrs` dan `filesystem` yang sudah terdeteksi.
+4. Aktifkan kedua server (hasil import default `enabled: false`).
+
+Jika Anda ingin menambahkannya manual, isi `.mcp.json` adalah:
 
 ```json
 {
@@ -190,6 +198,10 @@ Setelah installer selesai, buka **GitDesktop -> Settings -> MCP** dan tempel isi
 ```
 
 Ganti `/path/ke/repo` dengan path repo Anda. Gunakan selalu garis miring `/`.
+
+> **Catatan:** `.mcp.json` berisi path absolut pengguna, jadi sudah dimasukkan ke `.gitignore` dan **tidak boleh di-commit**.
+
+> **Kenapa tidak 100% otomatis?** GitDesktop merancang import MCP sebagai *reviewed import*: nilai yang cocok dengan pola rahasia (`SECRET_KEY_RE`) dipindahkan ke keychain OS, dan setiap entri masuk dengan status `enabled: false`. Keduanya hanya bisa dilakukan dari dalam GUI GitDesktop, bukan dari skrip fish.
 
 ### Setelah instalasi
 
@@ -228,6 +240,8 @@ Yang dilakukan secara default:
 
 Tool (`gitrs-mcp`, `mcp-filesystem-server`) tetap **tidak** dihapus kecuali diminta dengan `--with-tools`.
 
+> `.mcp.json` di root repo **tidak** dihapus otomatis karena berada di dalam repo pengguna. Hapus manual bila perlu, atau gunakan `git clean -f .mcp.json`.
+
 ### Opsi uninstaller
 
 | Opsi | Efek |
@@ -257,6 +271,7 @@ fish install.fish --clean
 
 - Jika `gitrs-mcp` atau `mcp-filesystem-server` tidak ditemukan, jalankan `fish_add_path ~/.local/bin ~/go/bin` lalu buka terminal baru.
 - Jika `gitdesktop-mcp` tidak ditemukan padahal AppImage sudah ada, buka GitDesktop sekali dan jalankan **Settings -> Use GitDesktop as an MCP server -> Add to PATH**, lalu buka terminal baru.
+- Jika server `gitrs`/`filesystem` tidak muncul di **Settings -> MCP** GitDesktop, pastikan repo yang dibuka di GitDesktop adalah root `Easy-Vibe` (tempat `.mcp.json` berada), lalu klik **Refresh** atau buka ulang dialog.
 - Jika unduhan AppImage gagal (misalnya tidak ada koneksi ke GitHub API), pasang manual dari halaman rilis resmi, lalu jalankan `install.fish --skip-gitdesktop`.
 - Jika `paru -S gitdesktop-bin` atau `flatpak install io.github.thebguy.GitDesktop` gagal, itu memang diharapkan. Kedua kanal tidak lagi sinkron dengan rilis resmi. Pakai AppImage dari halaman rilis.
 - Jika pip mengeluh `externally-managed-environment`, installer sudah memakai venv sehingga masalah ini tidak muncul.
@@ -312,7 +327,7 @@ Salin `config/bridge-servers.example.json` ke `web-mcp-bridge/server/servers.jso
 
 ### 5. Daftarkan server anak di GitDesktop
 
-Buka **GitDesktop -> Settings -> MCP** dan tambahkan `gitrs` dan `filesystem` seperti contoh di atas.
+Tulis `.mcp.json` di root repo (isi di atas), buka repo itu di GitDesktop, lalu **Settings -> MCP -> Import**. Atau tempel manual di dialog MCP.
 
 ### 6. Jalankan bridge
 
@@ -341,6 +356,7 @@ Detail: `docs/alur-kerja.md`.
 - Aktifkan `--allow-write` gitrs hanya saat diperlukan.
 - Setujui manual setiap operasi destruktif.
 - Commit atau backup sebelum pekerjaan besar.
+- `.mcp.json` berisi path absolut dan sudah masuk `.gitignore`; jangan di-commit.
 
 Checklist lengkap: `docs/keamanan.md`.
 
