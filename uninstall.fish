@@ -90,13 +90,32 @@ if contains "$GOBIN" $fish_user_paths
 end
 
 if test $TOOLS -eq 1
-    say "== Tool =="
+    say "== Tool MCP =="
     rm_path "$HOME/.local/bin/gitrs-mcp"
     rm_path "$GOBIN/mcp-filesystem-server"
 end
 
 if test $GD -eq 1
     say "== GitDesktop =="
+    # GitDesktop dipasang lewat rilis resmi (AppImage). Yang kita bersihkan:
+    #   1. Symlink `gitdesktop-mcp` di ~/.local/bin yang dibuat oleh Settings
+    #      "Use GitDesktop as an MCP server -> Add to PATH".
+    #   2. Berkas AppImage di ~/Applications bila ada.
+    # Paket AUR `gitdesktop-bin` dan Flatpak `io.github.thebguy.GitDesktop`
+    # tetap dicoba dibersihkan hanya jika benar-benar terpasang, sebagai
+    # jalur warisan untuk instalasi lama.
+
+    set -l launcher "$HOME/.local/bin/gitdesktop-mcp"
+    if test -L "$launcher" -o -f "$launcher"
+        rm_path "$launcher"
+    end
+
+    for candidate in "$HOME/Applications/GitDesktop.AppImage" "$HOME/Applications/GitDesktop_"*"_amd64.AppImage"
+        if test -e "$candidate"
+            rm_path "$candidate"
+        end
+    end
+
     if pacman -Qi gitdesktop-bin >/dev/null 2>&1
         if test $DRY -eq 0
             if command -v paru >/dev/null 2>&1
@@ -104,18 +123,18 @@ if test $GD -eq 1
             else if command -v yay >/dev/null 2>&1
                 yay -Rns --noconfirm gitdesktop-bin
             end
-            say "gitdesktop-bin dihapus"
+            say "gitdesktop-bin dihapus (paket warisan)"
         else
-            say "akan dihapus: gitdesktop-bin"
+            say "akan dihapus: gitdesktop-bin (paket warisan)"
         end
     end
     if command -v flatpak >/dev/null 2>&1
         if flatpak list --app 2>/dev/null | string match -q "*GitDesktop*"
             if test $DRY -eq 0
                 flatpak uninstall -y io.github.thebguy.GitDesktop
-                say "flatpak GitDesktop dihapus"
+                say "flatpak GitDesktop dihapus (paket warisan)"
             else
-                say "akan dihapus: io.github.thebguy.GitDesktop"
+                say "akan dihapus: io.github.thebguy.GitDesktop (paket warisan)"
             end
         end
     end
