@@ -110,7 +110,6 @@ if test -n "$GH_TOKEN"
 end
 
 install_prasyarat; or exit 1
-install_gitrs
 install_filesystem
 
 printf '\n== Memasang GitDesktop ==\n'
@@ -119,19 +118,29 @@ install_gitdesktop "$HOME/Applications/GitDesktop.AppImage" "$HOME/.local/bin/gi
 printf '\n== Web MCP Bridge ==\n'
 install_bridge $BRIDGE_REPO $BRIDGE_DIR $VENV_DIR $GH_TOKEN; or exit 1
 
+printf '\n== Memasang library mcp untuk multi-git ==\n'
+"$VENV_DIR/bin/pip" install mcp >/dev/null 2>&1
+or begin
+    printf '[GAGAL] Gagal menginstal library mcp\n' >&2
+    exit 1
+end
+
 printf '\n== Menulis servers.json ==\n'
-# PENTING: tambahkan argumen "mcp" agar GitDesktop berjalan sebagai server, bukan membuka GUI
 printf '{\n  "control_port": %d,\n  "launcher_port": %d,\n  "servers": [\n    {\n      "name": "gitdesktop",\n      "port": %d,\n      "command": ["gitdesktop-mcp", "mcp"]\n    }\n  ]\n}\n' $CONTROL_PORT $LAUNCHER_PORT $HUB_PORT > "$BRIDGE_DIR/server/servers.json"
 
+# Path untuk skrip multi-git-mcp
+set -l multi_git_script "$SCRIPT_DIR/scripts/multi-git-mcp.py"
+set -l venv_python "$VENV_DIR/bin/python"
+
 set -l snippet_path "$INSTALL_DIR/gitdesktop-mcp-servers.json"
-printf '{\n  "mcpServers": {\n    "gitrs": {\n      "command": "gitrs-mcp",\n      "args": ["--repo", "%s"]\n    },\n    "filesystem": {\n      "command": "mcp-filesystem-server",\n      "args": ["%s"]\n    }\n  }\n}\n' "$REPO_PATH" "$REPO_PATH" > $snippet_path
+printf '{\n  "mcpServers": {\n    "git": {\n      "command": "%s",\n      "args": ["%s"]\n    },\n    "filesystem": {\n      "command": "mcp-filesystem-server",\n      "args": ["%s"]\n    }\n  }\n}\n' "$venv_python" "$multi_git_script" "$HOME" > $snippet_path
 
 set -l repo_mcp "$REPO_PATH/.mcp.json"
-printf '{\n  "mcpServers": {\n    "gitrs": {\n      "command": "gitrs-mcp",\n      "args": ["--repo", "%s"]\n    },\n    "filesystem": {\n      "command": "mcp-filesystem-server",\n      "args": ["%s"]\n    }\n  }\n}\n' "$REPO_PATH" "$REPO_PATH" > $repo_mcp
+printf '{\n  "mcpServers": {\n    "git": {\n      "command": "%s",\n      "args": ["%s"]\n    },\n    "filesystem": {\n      "command": "mcp-filesystem-server",\n      "args": ["%s"]\n    }\n  }\n}\n' "$venv_python" "$multi_git_script" "$HOME" > $repo_mcp
 
 printf '\n== Menyuntikkan MCP otomatis ==\n'
 if command -v python >/dev/null 2>&1
-    python "$SCRIPT_DIR/scripts/inject_gitdesktop_mcp.py" "$REPO_PATH"
+    python "$SCRIPT_DIR/scripts/inject_gitdesktop_mcp.py" "$HOME" "$venv_python" "$multi_git_script"
 end
 
 set -l launcher "$INSTALL_DIR/start-easy-vibe.fish"
