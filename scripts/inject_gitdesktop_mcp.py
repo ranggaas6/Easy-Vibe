@@ -15,11 +15,13 @@ def get_settings_path():
     return paths[0]
 
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: inject_gitdesktop_mcp.py <repo_path>")
+    if len(sys.argv) < 4:
+        print("Usage: inject_gitdesktop_mcp.py <home_dir> <venv_python> <multi_git_script>")
         sys.exit(1)
     
-    repo_path = sys.argv[1]
+    home_dir = sys.argv[1]
+    venv_python = sys.argv[2]
+    multi_git_script = sys.argv[3]
     settings_path = get_settings_path()
     
     os.makedirs(os.path.dirname(settings_path), exist_ok=True)
@@ -40,17 +42,17 @@ def main():
     if not isinstance(mcp_servers, list):
         mcp_servers = []
         
-    mcp_servers = [s for s in mcp_servers if s.get("name") not in ("gitrs", "filesystem")]
+    mcp_servers = [s for s in mcp_servers if s.get("name") not in ("gitrs", "git", "filesystem")]
     
     mcp_servers.append({
         "id": str(uuid.uuid4()),
-        "name": "gitrs",
-        "description": "Git status, diff, branch, staging, commit",
+        "name": "git",
+        "description": "Multi-repo Git operations",
         "enabled": True,
         "scope": "global",
         "transport": "stdio",
-        "command": "gitrs-mcp",
-        "args": ["--repo", repo_path],
+        "command": venv_python,
+        "args": [multi_git_script],
         "env": [],
         "url": "",
         "headers": [],
@@ -65,7 +67,7 @@ def main():
         "scope": "global",
         "transport": "stdio",
         "command": "mcp-filesystem-server",
-        "args": [repo_path],
+        "args": [home_dir],
         "env": [],
         "url": "",
         "headers": [],
@@ -78,7 +80,7 @@ def main():
     with open(settings_path, "w") as f:
         json.dump(data, f, indent=2)
     
-    print(f"[OK]   Konfigurasi MCP disuntikkan secara otomatis ke {settings_path}")
+    print(f"[OK]   Konfigurasi MCP (multi-git & filesystem home) disuntikkan ke {settings_path}")
 
 if __name__ == "__main__":
     main()
