@@ -124,21 +124,55 @@ install_bridge $BRIDGE_REPO $BRIDGE_DIR $VENV_DIR $GH_TOKEN; or exit 1
 
 printf '\n== Konfigurasi Ekstensi Brave (Otomatis) ==\n'
 if command -v brave >/dev/null 2>&1
+    # Cari file desktop Brave yang ada di sistem
+    set -l system_brave_desktop ""
+    for f in /usr/share/applications/brave-browser.desktop /usr/share/applications/com.brave.Browser.desktop
+        if test -f $f
+            set system_brave_desktop $f
+            break
+        end
+    end
+
+    if test -n "$system_brave_desktop"
+        set -l local_brave_desktop "$HOME/.local/share/applications/"(basename $system_brave_desktop)
+        mkdir -p "$HOME/.local/share/applications"
+        cp $system_brave_desktop $local_brave_desktop
+
+        # Modifikasi Exec= untuk menambahkan flag --load-extension
+        python3 -c "
+import os
+p = '$local_brave_desktop'
+ext = '$BRIDGE_DIR'
+with open(p, 'r') as f:
+    lines = f.readlines()
+with open(p, 'w') as f:
+    for line in lines:
+        if line.startswith('Exec='):
+            parts = line.split(' ', 1)
+            if len(parts) > 1:
+                line = parts[0] + ' --load-extension=\"' + ext + '\" ' + parts[1]
+            else:
+                line = parts[0] + ' --load-extension=\"' + ext + '\"\n'
+        f.write(line)
+"
+        printf '[OK]   Ikon Brave standar dimodifikasi untuk memuat ekstensi secara otomatis.\n'
+        printf '       Cukup klik ikon Brave biasa Anda.\n'
+    else
+        printf '[PERINGATAN] File desktop Brave tidak ditemukan. Lewati otomatisasi ikon standar.\n'
+    end
+
+    # Tetap buat launcher khusus sebagai alternatif (jika ingin profil terpisah)
     set -l brave_launcher "$INSTALL_DIR/launch-brave-easy-vibe.fish"
     printf '#!/usr/bin/env fish\n# Jalankan Brave dengan ekstensi Web MCP Bridge (Fork) dimuat otomatis\nbrave --load-extension="%s" $argv\n' "$BRIDGE_DIR" > "$brave_launcher"
     chmod +x "$brave_launcher"
     
-    mkdir -p "$HOME/.local/share/applications"
     set -l desktop_file "$HOME/.local/share/applications/easy-vibe-brave.desktop"
-    printf '[Desktop Entry]\nName=Brave (Easy-Vibe)\nComment=Brave dengan ekstensi Web MCP Bridge otomatis\nExec=%s\nType=Application\nIcon=brave-browser\nCategories=Development;\nTerminal=false\n' "$brave_launcher" > "$desktop_file"
+    printf '[Desktop Entry]\nName=Brave (Easy-Vibe Profile)\nComment=Brave dengan profil terpisah dan ekstensi Web MCP Bridge\nExec=%s\nType=Application\nIcon=brave-browser\nCategories=Development;\nTerminal=false\n' "$brave_launcher" > "$desktop_file"
     
+    # Panggil update-desktop-database dengan output yang lebih bersih (abaikan error kquicklook)
     if command -v update-desktop-database >/dev/null 2>&1
-        update-desktop-database "$HOME/.local/share/applications"
+        update-desktop-database "$HOME/.local/share/applications" 2>/dev/null
     end
-    
-    printf '[OK]   Launcher Brave dengan ekstensi otomatis dibuat.\n'
-    printf '       Gunakan perintah: %s\n' "$brave_launcher"
-    printf '       Atau cari "Brave (Easy-Vibe)" di menu aplikasi Anda.\n'
 else
     printf '[INFO] Brave tidak ditemukan. Lewati otomatisasi ekstensi Brave.\n'
 end
