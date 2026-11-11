@@ -1,5 +1,5 @@
 #!/usr/bin/env fish
-set -l SCRIPT_DIR (dirname (status --current-filename))
+set -l SCRIPT_DIR (realpath (dirname (status --current-filename)))
 source "$SCRIPT_DIR/scripts/github-auth.fish"
 source "$SCRIPT_DIR/scripts/install-base.fish"
 source "$SCRIPT_DIR/scripts/install-bridge.fish"
