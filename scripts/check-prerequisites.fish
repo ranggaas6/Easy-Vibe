@@ -78,13 +78,36 @@ if command -v gitdesktop-mcp >/dev/null 2>&1
     printf '[OK]   gitdesktop-mcp ditemukan: %s\n' (command -v gitdesktop-mcp)
 else
     printf '[GAGAL] gitdesktop-mcp tidak ditemukan. GitDesktop adalah hub MCP; tanpa binary ini seluruh rantai tool gagal.\n'
+    printf '       Pasang GitDesktop dari rilis resmi:\n'
+    printf '         https://github.com/theBGuy/GitDesktop/releases/latest\n'
+    printf '       Lalu buka GitDesktop -> Settings -> Use GitDesktop as an MCP server -> Add to PATH.\n'
+    printf '       Jangan memakai AUR gitdesktop-bin (usang) atau Flatpak io.github.thebguy.GitDesktop (tidak tersedia).\n'
     set -g exit_code 1
 end
 
 if command -v gitdesktop >/dev/null 2>&1
-    printf '[OK]   aplikasi gitdesktop ditemukan\n'
+    printf '[OK]   aplikasi gitdesktop ditemukan: %s\n' (command -v gitdesktop)
 else
-    printf '[PERINGATAN] aplikasi gitdesktop tidak ditemukan di PATH. Mungkin terpasang via Flatpak; pastikan Settings -> MCP bisa dibuka.\n'
+    set -l appimage_candidates "$HOME/Applications/GitDesktop.AppImage" "$HOME/Applications/GitDesktop_"*"_amd64.AppImage"
+    set -l found_appimage 0
+    for cand in $appimage_candidates
+        if test -e "$cand"
+            set found_appimage 1
+            printf '[OK]   AppImage GitDesktop ditemukan: %s\n' $cand
+            break
+        end
+    end
+    if test $found_appimage -eq 0
+        printf '[PERINGATAN] aplikasi GitDesktop tidak ditemukan di PATH maupun sebagai AppImage di ~/Applications.\n'
+        printf '       Pasang dari rilis resmi: https://github.com/theBGuy/GitDesktop/releases/latest\n'
+        printf '       Jangan memakai AUR gitdesktop-bin (usang) atau Flatpak io.github.thebguy.GitDesktop (tidak tersedia).\n'
+    end
+end
+
+if test -L "$HOME/.local/bin/gitdesktop-mcp" -o -f "$HOME/.local/bin/gitdesktop-mcp"
+    printf '[OK]   launcher gitdesktop-mcp ada di ~/.local/bin\n'
+else
+    printf '[PERINGATAN] launcher gitdesktop-mcp tidak ada di ~/.local/bin. Buka GitDesktop -> Settings -> Use GitDesktop as an MCP server -> Add to PATH.\n'
 end
 
 echo
