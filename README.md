@@ -139,7 +139,6 @@ Installer akan:
 6. **Membersihkan child server di GitDesktop** agar tidak terjadi duplikasi tool.
 7. Membuat skrip **wrapper** (`launch-gitdesktop.fish`) dan ikon menu aplikasi (`.desktop`).
 8. Menulis manifest untuk uninstaller.
-9. **Jika Brave terdeteksi, membuat launcher `Brave (Easy-Vibe)` yang otomatis memuat ekstensi.**
 
 ### Siklus Hidup Bridge (Otomatis)
 
@@ -152,19 +151,11 @@ Ikon menu GitDesktop yang dibuat oleh installer sebenarnya adalah sebuah *wrappe
 
 Anda tidak perlu menjalankan terminal untuk menyalakan bridge lagi.
 
-### Otomatisasi Ekstensi Brave
-
-Jika Anda menggunakan Brave Browser, `install.fish` secara otomatis membuat skrip peluncur khusus dan ikon menu aplikasi bernama **`Brave (Easy-Vibe)`**. 
-
-Saat Anda membuka Brave melalui ikon tersebut, ekstensi Web MCP Bridge akan **dimuat secara otomatis** tanpa perlu melalui menu `chrome://extensions`. Ini menggunakan flag `--load-extension` yang masih didukung oleh Brave. 
-
-Anda tetap bisa menggunakan Brave biasa (tanpa ekstensi otomatis) dengan membuka ikon Brave standar.
-
 ### Setelah instalasi
 
 Dua langkah tetap manual karena dibatasi browser dan situs DeepSeek:
 
-1. Muat folder `~/.easy-vibe/web-mcp-bridge` sebagai ekstensi unpacked di `chrome://extensions`. **(Khusus Brave: jika Anda menggunakan ikon `Brave (Easy-Vibe)`, langkah ini bisa dilewati).**
+1. Muat folder `~/.easy-vibe/web-mcp-bridge` sebagai ekstensi unpacked di `chrome://extensions`.
 2. Buka DeepSeek, klik **Inject instructions** di panel bridge.
 
 ## Uninstalasi CachyOS + fish
