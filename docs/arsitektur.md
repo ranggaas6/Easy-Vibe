@@ -9,13 +9,12 @@ DeepSeek (LLM)
 Web MCP Bridge (fork ranggaas6)
     |  127.0.0.1
     v
-GitDesktop MCP  <-- hub, satu-satunya entry di servers.json
-    |
-    +-- gitrs-mcp               (child, di Settings MCP GitDesktop)
-    +-- mcp-filesystem-server   (child, di Settings MCP GitDesktop)
++-- gitdesktop (port 8190)  <-- Hub untuk repo yang sedang dibuka (GUI & visual review)
++-- git (port 8191)         <-- Server Git independen (akses lintas repo di $HOME)
++-- filesystem (port 8192)  <-- Akses file independen (seluruh $HOME)
 ```
 
-Bridge hanya melihat satu server, yaitu GitDesktop MCP. GitDesktop menjadi hub yang meneruskan tool dari server anak. Server anak tidak ditulis ke `servers.json` bridge.
+Bridge melihat tiga server independen di `servers.json`. Pembagian tiga jalur ini disengaja untuk mengadaptasi semua fitur Git milik GitHub, memungkinkan AI mengakses seluruh repositori di folder `$HOME`, dan mengakses repo lain sebagai referensi saat sedang membuka repo utama untuk koding.
 
 ## Sumber bridge
 
@@ -42,14 +41,14 @@ Installer memakai fork secara default. Untuk memakai upstream, jalankan `fish in
 ## Prinsip dasar
 
 1. Tool lokal, AI cloud.
-2. Satu titik masuk: bridge hanya bicara ke GitDesktop MCP.
-3. Server anak dikelola di Settings MCP GitDesktop.
+2. Tiga titik masuk independen: bridge berbicara langsung ke GitDesktop, server Git (multi-git), dan server Filesystem.
+3. Setiap server dikelola secara terpisah di `servers.json` tanpa saling bergantung.
 4. Manusia memegang keputusan staging, commit, dan operasi destruktif.
 5. Isolasi penuh terhadap upstream: nama, storage, penanda, Web Lock, dan port fork berbeda.
 
 ## Alur data
 
-Ketika DeepSeek membaca kode melalui filesystem yang diteruskan GitDesktop, hasil pembacaan dikirim kembali ke halaman chat. Data yang dibaca tool keluar dari komputer.
+Ketika DeepSeek membaca kode melalui filesystem atau git, hasil pembacaan dikirim kembali ke halaman chat. Data yang dibaca tool keluar dari komputer.
 
 ## Pembagian peran
 
@@ -57,9 +56,9 @@ Ketika DeepSeek membaca kode melalui filesystem yang diteruskan GitDesktop, hasi
 |---|---|---|
 | DeepSeek Web Chat | Analisis, perencanaan, penulisan kode | Browser |
 | Web MCP Bridge (fork) | Tool signature ringkas, izin, validasi | servers.json bridge |
-| GitDesktop MCP | Hub: teruskan tool anak + tool Git/forge sendiri | servers.json bridge |
-| gitrs-mcp | Status, diff, branch, staging, commit | Settings MCP GitDesktop |
-| mcp-filesystem-server | Baca, tulis, modifikasi file | Settings MCP GitDesktop |
+| GitDesktop MCP | Hub: tool GitDesktop khusus repo aktif (visual) | servers.json bridge |
+| multi-git-mcp | Status, diff, log, commit lintas repo via `repo_path` | servers.json bridge |
+| mcp-filesystem-server | Baca, tulis, modifikasi file lintas direktori | servers.json bridge |
 | GitDesktop GUI | Review visual oleh manusia | Aplikasi desktop |
 
 ## Konfigurasi bridge (fork)
@@ -72,47 +71,42 @@ Ketika DeepSeek membaca kode melalui filesystem yang diteruskan GitDesktop, hasi
     {
       "name": "gitdesktop",
       "port": 8190,
-      "command": ["gitdesktop-mcp"]
+      "command": ["gitdesktop-mcp", "mcp", "--repo", "/path/ke/repo"]
+    },
+    {
+      "name": "git",
+      "port": 8191,
+      "command": ["/home/user/.easy-vibe/run-multi-git.sh"]
+    },
+    {
+      "name": "filesystem",
+      "port": 8192,
+      "command": ["mcp-filesystem-server", "/home/user"]
     }
   ]
 }
 ```
 
-Dengan `--upstream`, installer menulis `control_port: 8099`, `launcher_port: 8098`, dan `port: 8090`.
+Dengan `--upstream`, installer menulis `control_port: 8099`, `launcher_port: 8098`, dan port `gitdesktop` menjadi `8090`.
 
-## Konfigurasi GitDesktop (Settings MCP)
+## Skrip Wrapper multi-git
 
-```json
-{
-  "mcpServers": {
-    "gitrs": {
-      "command": "gitrs-mcp",
-      "args": ["--repo", "/path/ke/repo"]
-    },
-    "filesystem": {
-      "command": "mcp-filesystem-server",
-      "args": ["/path/ke/repo"]
-    }
-  }
-}
+Karena `multi-git-mcp.py` berbasis Python dan membutuhkan *virtual environment* spesifik, installer membuat skrip *wrapper* di `~/.easy-vibe/run-multi-git.sh`:
+
+```bash
+#!/bin/bash
+exec "/home/user/.easy-vibe/venv/bin/python" -u "/path/absolut/Easy-Vibe/scripts/multi-git-mcp.py"
 ```
 
-## Dua jalur tulis tetap berlaku
+Installer menggunakan `realpath` untuk memastikan path skrip selalu absolut, sehingga bridge dapat menjalankannya dari *current working directory* (CWD) mana pun.
 
-Meski lewat satu hub, dua jalur tulis masih ada:
+## Konfigurasi GitDesktop
 
-```
-GitDesktop MCP
-  +-- gitrs-mcp   (reset, restore, stage, commit, branch)
-  +-- filesystem  (write, modify, move, delete file)
-```
-
-Urutan kerja di `alur-kerja.md` wajib dipakai agar keduanya tidak saling menimpa.
+Installer **membersihkan** daftar `mcpServers` di file `settings.json` GitDesktop. Ini dilakukan agar GitDesktop tidak mencoba menjalankan server anaknya sendiri (yang bisa menyebabkan duplikasi tool dengan entri `git` dan `filesystem` di bridge). GitDesktop murni berfungsi sebagai *hub* untuk repo yang sedang dibuka.
 
 ## Batasan
 
 - Bridge bergantung pada format respons model dan struktur UI website.
 - Klaim hemat token 50% adalah klaim pengembang, bukan benchmark independen.
 - Batas direktori filesystem bukan sandbox OS mutlak.
-- GitDesktop MCP menambah satu lapisan. Jika GitDesktop tidak berjalan atau gitdesktop-mcp gagal start, seluruh rantai tool ikut gagal meski gitrs-mcp dan filesystem sehat.
 - Fork memakai protokol MCP yang sama dengan upstream (`2025-03-26`), sehingga server MCP yang sama bisa dipakai oleh kedua bridge.
