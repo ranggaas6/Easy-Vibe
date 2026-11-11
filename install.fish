@@ -129,13 +129,24 @@ or begin
     exit 1
 end
 
-set -l venv_python "$VENV_DIR/bin/python"
-set -l multi_git_script "$SCRIPT_DIR/scripts/multi-git-mcp.py"
+# Buat wrapper shell agar Bridge bisa spawn dengan andal
+set -l wrapper "$INSTALL_DIR/run-multi-git.sh"
+printf '#!/bin/bash\nexec "%s/bin/python" -u "%s"\n' "$VENV_DIR" "$SCRIPT_DIR/scripts/multi-git-mcp.py" > "$wrapper"
+chmod +x "$wrapper"
+printf '[OK]   Wrapper multi-git dibuat di %s\n' $wrapper
+
+printf '\n== Menguji multi-git server ==\n'
+set -l test_out (echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}' | timeout 8 "$wrapper" 2>&1 | head -c 200)
+if string match -q '*"result"*' -- "$test_out"
+    printf '[OK]   Multi-git server merespons MCP handshake\n'
+else
+    printf '[PERINGATAN] Multi-git merespons: %s\n' "$test_out"
+end
 
 printf '\n== Menulis servers.json (3 server terpisah) ==\n'
-printf '{\n  "control_port": %d,\n  "launcher_port": %d,\n  "servers": [\n    {\n      "name": "gitdesktop",\n      "port": %d,\n      "command": ["gitdesktop-mcp", "mcp", "--repo", "%s"]\n    },\n    {\n      "name": "git",\n      "port": %d,\n      "command": ["%s", "%s"]\n    },\n    {\n      "name": "filesystem",\n      "port": %d,\n      "command": ["mcp-filesystem-server", "%s"]\n    }\n  ]\n}\n' $CONTROL_PORT $LAUNCHER_PORT $HUB_PORT $REPO_PATH $GIT_PORT $venv_python $multi_git_script $FS_PORT $HOME > "$BRIDGE_DIR/server/servers.json"
+printf '{\n  "control_port": %d,\n  "launcher_port": %d,\n  "servers": [\n    {\n      "name": "gitdesktop",\n      "port": %d,\n      "command": ["gitdesktop-mcp", "mcp", "--repo", "%s"]\n    },\n    {\n      "name": "git",\n      "port": %d,\n      "command": ["%s"]\n    },\n    {\n      "name": "filesystem",\n      "port": %d,\n      "command": ["mcp-filesystem-server", "%s"]\n    }\n  ]\n}\n' $CONTROL_PORT $LAUNCHER_PORT $HUB_PORT $REPO_PATH $GIT_PORT $wrapper $FS_PORT $HOME > "$BRIDGE_DIR/server/servers.json"
 
-printf '\n== Membersihkan child server di GitDesktop (agar tidak dobel) ==\n'
+printf '\n== Membersihkan child server di GitDesktop ==\n'
 if command -v python >/dev/null 2>&1
     python -c "
 import json, os
@@ -147,9 +158,9 @@ for p in paths:
             if 'settings' in data and isinstance(data['settings'], dict):
                 data['settings']['mcpServers'] = []
                 json.dump(data, open(p, 'w'), indent=2)
-                print(f'[OK]   Bersihkan child server di {p}')
+                print(f'[OK]   Bersihkan {p}')
         except Exception as e:
-            print(f'[PERINGATAN] Gagal membersihkan {p}: {e}')
+            print(f'[PERINGATAN] {p}: {e}')
 "
 end
 
