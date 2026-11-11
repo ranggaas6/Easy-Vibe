@@ -1,11 +1,11 @@
 #!/usr/bin/env fish
 # Easy-Vibe Uninstaller untuk CachyOS + fish
 
-set -l DRY 0
-set -l TOOLS 0
-set -l GD 0
-set -l FULL 0
-set -l YES 0
+set -g DRY 0
+set -g TOOLS 0
+set -g GD 0
+set -g FULL 0
+set -g YES 0
 
 for a in $argv
     switch $a
