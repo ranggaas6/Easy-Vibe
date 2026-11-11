@@ -71,12 +71,16 @@ set -l BRIDGE_REPO "https://github.com/ranggaas6/web-mcp-bridge"
 set -l CONTROL_PORT 8199
 set -l LAUNCHER_PORT 8198
 set -l HUB_PORT 8190
+set -l GIT_PORT 8191
+set -l FS_PORT 8192
 set -l BRIDGE_LABEL "fork"
 if test $USE_UPSTREAM -eq 1
     set BRIDGE_REPO "https://github.com/AstraxOf/web-mcp-bridge"
     set CONTROL_PORT 8099
     set LAUNCHER_PORT 8098
     set HUB_PORT 8090
+    set GIT_PORT 8091
+    set FS_PORT 8092
     set BRIDGE_LABEL "upstream"
 end
 
@@ -125,22 +129,28 @@ or begin
     exit 1
 end
 
-printf '\n== Menulis servers.json ==\n'
-printf '{\n  "control_port": %d,\n  "launcher_port": %d,\n  "servers": [\n    {\n      "name": "gitdesktop",\n      "port": %d,\n      "command": ["gitdesktop-mcp", "mcp"]\n    }\n  ]\n}\n' $CONTROL_PORT $LAUNCHER_PORT $HUB_PORT > "$BRIDGE_DIR/server/servers.json"
-
-# Path untuk skrip multi-git-mcp
-set -l multi_git_script "$SCRIPT_DIR/scripts/multi-git-mcp.py"
 set -l venv_python "$VENV_DIR/bin/python"
+set -l multi_git_script "$SCRIPT_DIR/scripts/multi-git-mcp.py"
 
-set -l snippet_path "$INSTALL_DIR/gitdesktop-mcp-servers.json"
-printf '{\n  "mcpServers": {\n    "git": {\n      "command": "%s",\n      "args": ["%s"]\n    },\n    "filesystem": {\n      "command": "mcp-filesystem-server",\n      "args": ["%s"]\n    }\n  }\n}\n' "$venv_python" "$multi_git_script" "$HOME" > $snippet_path
+printf '\n== Menulis servers.json (3 server terpisah) ==\n'
+printf '{\n  "control_port": %d,\n  "launcher_port": %d,\n  "servers": [\n    {\n      "name": "gitdesktop",\n      "port": %d,\n      "command": ["gitdesktop-mcp", "mcp", "--repo", "%s"]\n    },\n    {\n      "name": "git",\n      "port": %d,\n      "command": ["%s", "%s"]\n    },\n    {\n      "name": "filesystem",\n      "port": %d,\n      "command": ["mcp-filesystem-server", "%s"]\n    }\n  ]\n}\n' $CONTROL_PORT $LAUNCHER_PORT $HUB_PORT $REPO_PATH $GIT_PORT $venv_python $multi_git_script $FS_PORT $HOME > "$BRIDGE_DIR/server/servers.json"
 
-set -l repo_mcp "$REPO_PATH/.mcp.json"
-printf '{\n  "mcpServers": {\n    "git": {\n      "command": "%s",\n      "args": ["%s"]\n    },\n    "filesystem": {\n      "command": "mcp-filesystem-server",\n      "args": ["%s"]\n    }\n  }\n}\n' "$venv_python" "$multi_git_script" "$HOME" > $repo_mcp
-
-printf '\n== Menyuntikkan MCP otomatis ==\n'
+printf '\n== Membersihkan child server di GitDesktop (agar tidak dobel) ==\n'
 if command -v python >/dev/null 2>&1
-    python "$SCRIPT_DIR/scripts/inject_gitdesktop_mcp.py" "$HOME" "$venv_python" "$multi_git_script"
+    python -c "
+import json, os
+paths = [os.path.expanduser('~/.local/share/com.thebguy.gitdesktop/settings.json'), os.path.expanduser('~/.config/com.thebguy.gitdesktop/settings.json')]
+for p in paths:
+    if os.path.exists(p):
+        try:
+            data = json.load(open(p))
+            if 'settings' in data and isinstance(data['settings'], dict):
+                data['settings']['mcpServers'] = []
+                json.dump(data, open(p, 'w'), indent=2)
+                print(f'[OK]   Bersihkan child server di {p}')
+        except Exception as e:
+            print(f'[PERINGATAN] Gagal membersihkan {p}: {e}')
+"
 end
 
 set -l launcher "$INSTALL_DIR/start-easy-vibe.fish"
@@ -149,6 +159,5 @@ chmod +x $launcher
 
 printf '%s\n' $manifest_lines > "$MANIFEST"
 printf '\n== Selesai ==\n'
-printf 'Siklus hidup otomatis telah diaktifkan.\n'
-printf 'Bridge akan menyala saat Anda membuka GitDesktop, dan mati saat Anda menutupnya.\n'
-printf 'Launcher manual (jika diperlukan): %s\n' $launcher
+printf 'Bridge sekarang punya 3 server: gitdesktop (%d), git (%d), filesystem (%d)\n' $HUB_PORT $GIT_PORT $FS_PORT
+printf 'Launcher manual: %s\n' $launcher
