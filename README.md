@@ -71,9 +71,26 @@ Jika Anda ingin memakai upstream alih-alih fork, jalankan installer dengan `--up
 
 Target resmi saat ini: **CachyOS (Arch-based) dengan fish**.
 
-### Jalankan installer
+Installer berada **di dalam repositori ini** sebagai `install.fish`. Karena itu Anda harus meng-clone repositori lebih dulu, lalu menjalankan installer dari dalam direktori hasil clone.
 
-Dari terminal fish, di direktori repositori:
+### 1. Clone repositori
+
+```fish
+git clone https://github.com/ranggaas6/Easy-Vibe
+cd Easy-Vibe
+```
+
+Installer memeriksa bahwa direktori kerja adalah repositori Git. Bila dijalankan di luar direktori ini, installer gagal dengan pesan `Bukan repositori Git`.
+
+### 2. Cek prasyarat (opsional)
+
+```fish
+fish scripts/check-prerequisites.fish
+```
+
+### 3. Jalankan installer
+
+Dari dalam direktori repositori yang baru di-clone:
 
 ```fish
 fish install.fish
@@ -93,6 +110,14 @@ Untuk memakai upstream `AstraxOf/web-mcp-bridge`:
 ```fish
 fish install.fish --upstream
 ```
+
+Opsi lain:
+
+| Opsi | Efek |
+|---|---|
+| `--clean` | Jalankan `uninstall.fish --yes` dulu, lalu pasang ulang |
+| `--force` | Timpa instalasi lama tanpa bertanya |
+| `--upstream` | Pakai upstream (port `8099`/`8098`/`8090`) |
 
 Installer akan:
 
@@ -146,6 +171,8 @@ Bersihkan sistem sebelum installer dijalankan ulang, atau hapus total.
 
 ### Hapus instalasi Easy-Vibe saja
 
+Dari dalam direktori repositori hasil clone:
+
 ```fish
 fish uninstall.fish
 ```
@@ -190,6 +217,8 @@ fish install.fish --clean
 - Jika pip mengeluh `externally-managed-environment`, installer sudah memakai venv sehingga masalah ini tidak muncul.
 - Jika bridge gagal start, periksa `~/.easy-vibe/web-mcp-bridge/server/servers.json`.
 - Jika tool tidak muncul di DeepSeek, pastikan GitDesktop berjalan dan `gitdesktop-mcp` bisa dipanggil dari terminal.
+- Jika installer menolak berjalan dengan pesan `Bukan repositori Git`, pastikan Anda menjalankannya dari dalam direktori hasil `git clone`.
+- Jika installer menolak berjalan dengan pesan `pacman tidak ditemukan`, berarti sistem Anda bukan CachyOS/Arch; gunakan bagian instalasi manual.
 - Jika uninstaller bilang direktori tidak ditemukan, berarti instalasi sudah bersih.
 
 ## Instalasi manual (platform lain)
