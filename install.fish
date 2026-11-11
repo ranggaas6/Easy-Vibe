@@ -122,6 +122,27 @@ install_gitdesktop "$HOME/Applications/GitDesktop.AppImage" "$HOME/.local/bin/gi
 printf '\n== Web MCP Bridge ==\n'
 install_bridge $BRIDGE_REPO $BRIDGE_DIR $VENV_DIR $GH_TOKEN; or exit 1
 
+printf '\n== Konfigurasi Ekstensi Brave (Otomatis) ==\n'
+if command -v brave >/dev/null 2>&1
+    set -l brave_launcher "$INSTALL_DIR/launch-brave-easy-vibe.fish"
+    printf '#!/usr/bin/env fish\n# Jalankan Brave dengan ekstensi Web MCP Bridge (Fork) dimuat otomatis\nbrave --load-extension="%s" $argv\n' "$BRIDGE_DIR" > "$brave_launcher"
+    chmod +x "$brave_launcher"
+    
+    mkdir -p "$HOME/.local/share/applications"
+    set -l desktop_file "$HOME/.local/share/applications/easy-vibe-brave.desktop"
+    printf '[Desktop Entry]\nName=Brave (Easy-Vibe)\nComment=Brave dengan ekstensi Web MCP Bridge otomatis\nExec=%s\nType=Application\nIcon=brave-browser\nCategories=Development;\nTerminal=false\n' "$brave_launcher" > "$desktop_file"
+    
+    if command -v update-desktop-database >/dev/null 2>&1
+        update-desktop-database "$HOME/.local/share/applications"
+    end
+    
+    printf '[OK]   Launcher Brave dengan ekstensi otomatis dibuat.\n'
+    printf '       Gunakan perintah: %s\n' "$brave_launcher"
+    printf '       Atau cari "Brave (Easy-Vibe)" di menu aplikasi Anda.\n'
+else
+    printf '[INFO] Brave tidak ditemukan. Lewati otomatisasi ekstensi Brave.\n'
+end
+
 printf '\n== Memasang library mcp untuk multi-git ==\n'
 "$VENV_DIR/bin/pip" install "mcp<2" >/dev/null 2>&1
 or begin
