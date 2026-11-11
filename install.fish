@@ -122,36 +122,60 @@ install_gitdesktop "$HOME/Applications/GitDesktop.AppImage" "$HOME/.local/bin/gi
 printf '\n== Web MCP Bridge ==\n'
 install_bridge $BRIDGE_REPO $BRIDGE_DIR $VENV_DIR $GH_TOKEN; or exit 1
 
-printf '\n== Konfigurasi Ekstensi Brave (Otomatis via CDP) ==\n'
+printf '\n== Konfigurasi Ekstensi Brave (Otomatis) ==\n'
 if command -v brave >/dev/null 2>&1
-    # Pastikan websocket-client terinstal di venv untuk skrip injeksi
-    "$VENV_DIR/bin/pip" install websocket-client >/dev/null 2>&1
+    # Cari file desktop Brave yang ada di sistem
+    set -l system_brave_desktop ""
+    for f in /usr/share/applications/brave-browser.desktop /usr/share/applications/com.brave.Browser.desktop /usr/share/applications/brave.desktop
+        if test -f $f
+            set system_brave_desktop $f
+            break
+        end
+    end
 
-    set -l brave_loader "$INSTALL_DIR/load-brave-ext.py"
-    printf '%s\n' \
-    'import json, time, subprocess, urllib.request, websocket, os, sys' \
-    'ext_path = os.path.expanduser("~/.easy-vibe/web-mcp-bridge")' \
-    'if not os.path.exists(ext_path):' \
-    '    print("[ERROR] Folder ekstensi tidak ditemukan:", ext_path)' \
-    '    sys.exit(1)' \
-    'brave_cmd = ["brave", "--enable-unsafe-extension-debugging", "--remote-debugging-port=9333", "--no-first-run", "about:blank"]' \
-    'proc = subprocess.Popen(brave_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)' \
-    'time.sleep(4)' \
-    'try:' \
-    '    resp = urllib.request.urlopen("http://127.0.0.1:9333/json")' \
-    '    ws_url = json.loads(resp.read())[0]["webSocketDebuggerUrl"]' \
-    '    ws = websocket.create_connection(ws_url)' \
-    '    ws.send(json.dumps({"id": 1, "method": "Extensions.loadUnpacked", "params": {"path": ext_path}}))' \
-    '    result = ws.recv()' \
-    '    print("[OK] Ekstensi berhasil dimuat ke profil default Brave.")' \
-    '    ws.close()' \
-    'except Exception as e:' \
-    '    print("[PERINGATAN] Gagal memuat ekstensi otomatis:", e)' \
-    'finally:' \
-    '    proc.terminate()' > "$brave_loader"
+    if test -n "$system_brave_desktop"
+        set -l local_brave_desktop "$HOME/.local/share/applications/"(basename $system_brave_desktop)
+        mkdir -p "$HOME/.local/share/applications"
+        cp $system_brave_desktop $local_brave_desktop
 
-    printf 'Menginjeksi ekstensi ke profil Brave default (mohon tunggu)...\n'
-    "$VENV_DIR/bin/python" "$brave_loader"
+        # Modifikasi Exec= untuk menambahkan flag --load-extension dan --enable-unsafe-extension-debugging
+        python3 -c "
+import os
+p = '$local_brave_desktop'
+ext = '$BRIDGE_DIR'
+with open(p, 'r') as f:
+    lines = f.readlines()
+with open(p, 'w') as f:
+    for line in lines:
+        if line.startswith('Exec='):
+            # Hapus flag lama jika ada untuk menghindari duplikasi
+            line = line.replace(' --load-extension=\"' + ext + '\"', '')
+            line = line.replace(' --enable-unsafe-extension-debugging', '')
+            parts = line.split(' ', 1)
+            flags = ' --load-extension=\"' + ext + '\" --enable-unsafe-extension-debugging'
+            if len(parts) > 1:
+                line = parts[0] + flags + ' ' + parts[1]
+            else:
+                line = parts[0] + flags + '\n'
+        f.write(line)
+"
+        printf '[OK]   Ikon Brave standar dimodifikasi untuk memuat ekstensi secara otomatis.\n'
+
+        # Jalankan Brave sebentar untuk menulis ekstensi ke Secure Preferences
+        printf 'Menginstal ekstensi ke profil Brave default (mohon tunggu)...\n'
+        brave --load-extension="$BRIDGE_DIR" --enable-unsafe-extension-debugging --no-first-run about:blank &
+        set -l brave_pid $last_pid
+        sleep 6
+        kill $brave_pid 2>/dev/null
+        wait $brave_pid 2>/dev/null
+        printf '[OK]   Ekstensi berhasil diinjeksi ke profil default Brave.\n'
+    else
+        printf '[PERINGATAN] File desktop Brave tidak ditemukan. Lewati otomatisasi.\n'
+    end
+
+    if command -v update-desktop-database >/dev/null 2>&1
+        update-desktop-database "$HOME/.local/share/applications" 2>/dev/null
+    end
 else
     printf '[INFO] Brave tidak ditemukan. Lewati otomatisasi ekstensi Brave.\n'
 end
