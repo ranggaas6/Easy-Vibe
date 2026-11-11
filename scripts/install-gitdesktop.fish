@@ -12,6 +12,29 @@ function install_gitdesktop -a appimage_path link_path
         return 0
     end
 
+    set -l desktop_dir "$HOME/.local/share/applications"
+    set -l desktop_file "$desktop_dir/gitdesktop.desktop"
+    set -l wrapper_path "$HOME/.easy-vibe/launch-gitdesktop.fish"
+
+    # Fungsi internal untuk membuat .desktop dan wrapper
+    function _buat_wrapper -a appimage
+        # 1. Skrip wrapper untuk GUI (menyalakan bridge)
+        printf '#!/usr/bin/env fish\n# Wrapper GUI Easy-Vibe\n"%s" &>/dev/null &\nset -g gd_pid $last_pid\n\nfor i in (seq 1 20)\n    if not kill -0 $gd_pid 2>/dev/null\n        exit 0\n    end\n    if ss -tln | grep -q ":8190 "\n        break\n    end\n    sleep 0.5\nend\n\nfish "%s/start-easy-vibe.fish" &>/dev/null &\nset -g bridge_pid $last_pid\nwait $gd_pid\nkill $bridge_pid 2>/dev/null\n' "$appimage" "$HOME/.easy-vibe" > "$wrapper_path"
+        chmod +x "$wrapper_path"
+
+        # 2. File .desktop mengarah ke wrapper, bukan ke symlink
+        mkdir -p $desktop_dir
+        printf '[Desktop Entry]\nType=Application\nName=GitDesktop\nComment=AI-native Git desktop client\nExec="%s"\nIcon=git\nTerminal=false\nCategories=Development;VersionControl;\nStartupWMClass=GitDesktop\n' "$wrapper_path" > "$desktop_file"
+        chmod +x "$desktop_file"
+        set -a manifest_lines "gitdesktop-desktop-file $desktop_file"
+        set -a manifest_lines "gitdesktop-wrapper $wrapper_path"
+        
+        if command -v update-desktop-database >/dev/null 2>&1
+            update-desktop-database $desktop_dir >/dev/null 2>&1
+        end
+        printf '[OK]   Ikon menu aplikasi dibuat di %s\n' $desktop_file
+    end
+
     # Jika GitDesktop sudah ada, pastikan wrapper dibuat ulang
     if ada_gd gitdesktop-mcp
         set -l real_appimage (readlink -f (command -v gitdesktop-mcp))
@@ -20,22 +43,12 @@ function install_gitdesktop -a appimage_path link_path
         end
         
         mkdir -p (dirname $link_path)
-        # Skrip wrapper yang aman: jalankan GUI dulu, tunggu port, baru jalankan bridge
-        printf '#!/usr/bin/env fish\n# Wrapper otomatis Easy-Vibe\nif test (count $argv) -gt 0; and test "$argv[1]" = "mcp"\n    exec "%s" $argv\nend\n\n"%s" $argv &>/dev/null &\nset -l gd_pid $last_pid\n\nfor i in (seq 1 20)\n    if ss -tln | grep -q ":8190 "\n        break\n    end\n    sleep 0.5\nend\n\nif kill -0 $gd_pid 2>/dev/null\n    fish "%s/start-easy-vibe.fish" &>/dev/null &\n    set -l bridge_pid $last_pid\n    wait $gd_pid\n    kill $bridge_pid 2>/dev/null\nend\n' "$real_appimage" "$real_appimage" "$HOME/.easy-vibe" > "$link_path"
-        chmod +x "$link_path"
-        printf '[OK]   Wrapper gitdesktop-mcp diperbarui di %s\n' $link_path
+        # PENTING: gitdesktop-mcp HARUS tetap berupa symlink ke AppImage!
+        ln -sf "$real_appimage" "$link_path"
+        printf '[OK]   Symlink gitdesktop-mcp dikembalikan ke %s\n' $link_path
         set -a manifest_lines "gitdesktop-mcp-link $link_path"
         
-        set -l desktop_dir "$HOME/.local/share/applications"
-        set -l desktop_file "$desktop_dir/gitdesktop.desktop"
-        mkdir -p $desktop_dir
-        printf '[Desktop Entry]\nType=Application\nName=GitDesktop\nComment=AI-native Git desktop client\nExec="%s"\nIcon=git\nTerminal=false\nCategories=Development;VersionControl;\nStartupWMClass=GitDesktop\n' "$link_path" > "$desktop_file"
-        chmod +x "$desktop_file"
-        set -a manifest_lines "gitdesktop-desktop-file $desktop_file"
-        if command -v update-desktop-database >/dev/null 2>&1
-            update-desktop-database $desktop_dir >/dev/null 2>&1
-        end
-        printf '[OK]   Ikon menu aplikasi dibuat di %s\n' $desktop_file
+        _buat_wrapper "$real_appimage"
         return 0
     end
 
@@ -74,11 +87,10 @@ function install_gitdesktop -a appimage_path link_path
     printf '[OK]   SHA-256: %s\n' $sha
 
     mkdir -p (dirname $link_path)
-    # Buat skrip wrapper yang aman
-    printf '#!/usr/bin/env fish\n# Wrapper otomatis Easy-Vibe\nif test (count $argv) -gt 0; and test "$argv[1]" = "mcp"\n    exec "%s" $argv\nend\n\n"%s" $argv &>/dev/null &\nset -l gd_pid $last_pid\n\nfor i in (seq 1 20)\n    if ss -tln | grep -q ":8190 "\n        break\n    end\n    sleep 0.5\nend\n\nif kill -0 $gd_pid 2>/dev/null\n    fish "%s/start-easy-vibe.fish" &>/dev/null &\n    set -l bridge_pid $last_pid\n    wait $gd_pid\n    kill $bridge_pid 2>/dev/null\nend\n' "$appimage_path" "$appimage_path" "$HOME/.easy-vibe" > "$link_path"
-    chmod +x "$link_path"
+    # PENTING: gitdesktop-mcp HARUS berupa symlink langsung ke AppImage
+    ln -sf "$appimage_path" "$link_path"
     fish_add_path (dirname $link_path)
-    printf '[OK]   Wrapper gitdesktop-mcp dibuat di %s\n' $link_path
+    printf '[OK]   Symlink gitdesktop-mcp dibuat di %s\n' $link_path
     set -a manifest_lines "gitdesktop-mcp-link $link_path"
 
     # Verifikasi mode MCP
@@ -96,16 +108,7 @@ function install_gitdesktop -a appimage_path link_path
         printf '[PERINGATAN] gitdesktop-mcp tidak dapat dieksekusi di %s\n' $link_path
     end
 
-    set -l desktop_dir "$HOME/.local/share/applications"
-    set -l desktop_file "$desktop_dir/gitdesktop.desktop"
-    mkdir -p $desktop_dir
-    printf '[Desktop Entry]\nType=Application\nName=GitDesktop\nComment=AI-native Git desktop client\nExec="%s"\nIcon=git\nTerminal=false\nCategories=Development;VersionControl;\nStartupWMClass=GitDesktop\n' "$link_path" > "$desktop_file"
-    chmod +x "$desktop_file"
-    set -a manifest_lines "gitdesktop-desktop-file $desktop_file"
-    if command -v update-desktop-database >/dev/null 2>&1
-        update-desktop-database $desktop_dir >/dev/null 2>&1
-    end
-    printf '[OK]   Ikon menu aplikasi dibuat di %s\n' $desktop_file
+    _buat_wrapper "$appimage_path"
 
     return 0
 end
