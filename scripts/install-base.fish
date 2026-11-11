@@ -43,21 +43,6 @@ function install_prasyarat
     ib_ok "Paket dasar terpasang"
 end
 
-function install_gitrs
-    ib_langkah "Memasang gitrs-mcp"
-    if ib_ada gitrs-mcp
-        ib_ok "gitrs-mcp sudah terpasang: "(command -v gitrs-mcp)
-        return 0
-    end
-    curl -fsSL https://raw.githubusercontent.com/prasenjit-net/gitrs-mcp/master/install.sh | sh
-    if ib_ada gitrs-mcp
-        ib_ok "gitrs-mcp terpasang di "(command -v gitrs-mcp)
-        set -a manifest_lines "gitrs-mcp "(command -v gitrs-mcp)
-    else
-        ib_warn "gitrs-mcp belum ada di PATH. Jalankan: fish_add_path ~/.local/bin"
-    end
-end
-
 function install_filesystem
     ib_langkah "Memasang mcp-filesystem-server"
     if ib_ada mcp-filesystem-server
