@@ -59,9 +59,10 @@ Opsi installer:
 |---|---|
 | `--clean` | Uninstall dulu, lalu pasang ulang |
 | `--force` | Timpa instalasi lama |
-| `--upstream` | Pakai bridge upstream |
 | `--extension-id ID` | Wajib; dipakai di `allowed_origins` manifest native host |
 | `--github-token TOKEN` | Token untuk clone privat / hindari rate limit |
+
+Fitur pemicu tab DeepSeek hanya ada di fork `ranggaas6/web-mcp-bridge`. Upstream `AstraxOf/web-mcp-bridge` tidak menyediakan `nativeMessaging`, sehingga installer hanya memakai fork dan menolak opsi `--upstream`.
 
 Langkah installer:
 
