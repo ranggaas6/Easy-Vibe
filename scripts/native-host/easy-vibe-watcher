@@ -1,0 +1,51 @@
+#!/usr/bin/env python3
+import os, shutil, subprocess, sys, time
+H = os.path.expanduser("~")
+ROOT = os.environ.get("EASY_VIBE_ROOT", H)
+LOG = os.path.join(H, ".easy-vibe", "native-host.log")
+def log(m):
+    try: open(LOG, "a").write(time.strftime("%F %T") + " watcher " + m + "\n")
+    except: pass
+def cb():
+    return shutil.which("coding-mcp") or os.path.join(H, ".npm-global", "bin", "coding-mcp")
+def add(p):
+    b = cb()
+    if not os.path.exists(b): return
+    try:
+        r = subprocess.run([b, "add", p], capture_output=True, timeout=30)
+        log("add " + p + " rc=" + str(r.returncode))
+    except Exception as e:
+        log("add gagal " + p + " " + str(e))
+def find():
+    s = set()
+    for root, dirs, files in os.walk(ROOT):
+        if ".git" in dirs:
+            s.add(root)
+            dirs.remove(".git")
+        if "node_modules" in dirs:
+            dirs.remove("node_modules")
+        if len(s) > 500: break
+    return s
+def main():
+    ino = shutil.which("inotifywait")
+    if ino:
+        log("mulai inotify")
+        try:
+            p = subprocess.Popen([ino, "-m", "-r", "-e", "create", "-e", "moved_to", "--include", r"\.git$", "--format", "%w%f", ROOT], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+            for line in p.stdout:
+                path = line.decode("utf-8", "replace").strip()
+                if path.endswith(".git"):
+                    add(os.path.dirname(path))
+        except Exception as e:
+            log("inotify gagal " + str(e))
+    else:
+        log("mulai polling")
+        known = find()
+        while True:
+            time.sleep(30)
+            cur = find()
+            for n in cur - known:
+                add(n)
+            known = cur
+if __name__ == "__main__":
+    main()

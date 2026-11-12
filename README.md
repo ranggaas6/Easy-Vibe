@@ -28,9 +28,10 @@ Bridge hanya hidup selama tab `chat.deepseek.com` terbuka. Saat tab terakhir dit
 |---|---|
 | DeepSeek Web Chat | AI cloud: analisis, perencanaan, penulisan kode |
 | Web MCP Bridge (fork) | Izin tool, validasi, pemicu native host |
-| coding-mcp | Git & berkas lintas repo via `project_id`, `refresh_project_index` |
+| coding-mcp | Git & berkas lintas repo via `project_id` |
 | mcp-filesystem-server | Baca/tulis berkas di luar repo |
 | Native host | Menyalakan/mematikan bridge sesuai tab DeepSeek |
+| Watcher | Menambah repo baru ke registry selama bridge hidup |
 
 ## Perubahan dari versi lama
 
@@ -38,10 +39,11 @@ Bridge hanya hidup selama tab `chat.deepseek.com` terbuka. Saat tab terakhir dit
 - `gitdesktop` dan `multi-git-mcp` digantikan `coding-mcp`. Satu server, satu root, banyak repo.
 - Pemicu on/off berpindah ke tab DeepSeek via native messaging. Tanpa terminal, tanpa klik tambahan.
 - `servers.json` memakai path absolut hasil `command -v` agar tidak bergantung pada PATH.
+- Repo baru terdeteksi otomatis: rescan penuh saat bridge start, dan watcher selama bridge hidup.
 
 ## Prasyarat
 
-Python 3.9+, Go 1.21+, Node.js + npm, Git, Brave 116+.
+Python 3.9+, Go 1.21+, Node.js + npm, Git, Brave 116+. Opsional: `inotify-tools` (watcher memakai fallback polling jika tidak ada).
 
 ## Instalasi CachyOS + fish
 
@@ -71,16 +73,34 @@ Langkah installer:
 3. Pasang global `@kieutrongthien/coding-mcp`; jalankan `coding-mcp init /home/<user>`.
 4. Clone `ranggaas6/web-mcp-bridge`; pasang dependensi Python di venv.
 5. Tulis manifest native host `com.ranggaas6.easy_vibe.json` ke folder Brave (native dan Flatpak).
-6. Tulis `servers.json` dengan path absolut.
-7. Tulis `manifest.txt` untuk uninstaller.
+6. Salin `easy-vibe-host` dan `easy-vibe-watcher` ke `~/.easy-vibe/native-host/`.
+7. Tulis `servers.json` dengan path absolut.
+8. Tulis `manifest.txt` untuk uninstaller.
 
 Setelah instalasi:
 
 1. Reload extension di `brave://extensions` karena izin `nativeMessaging` baru aktif.
-2. Buka tab `chat.deepseek.com`; bridge menyala, `~/.easy-vibe/bridge.pid` muncul.
-3. Tutup tab DeepSeek; bridge mati, `bridge.pid` hilang.
+2. Buka tab `chat.deepseek.com`; bridge menyala, `~/.easy-vibe/bridge.pid` dan `~/.easy-vibe/watcher.pid` muncul.
+3. Tutup tab DeepSeek; bridge dan watcher mati, kedua file PID hilang.
 
-Log pemicu: `~/.easy-vibe/native-host.log`.
+Log pemicu dan watcher: `~/.easy-vibe/native-host.log`.
+
+## Repo baru terdeteksi otomatis
+
+Tidak perlu memanggil tool apa pun secara manual:
+
+1. **Saat bridge start**: native host menjalankan `coding-mcp init <root>` sebelum menyalakan bridge. Semua repo yang di-clone saat bridge mati langsung terdaftar.
+2. **Selama bridge hidup**: `easy-vibe-watcher` memantau `.git` baru. Dengan `inotifywait` deteksi berlangsung dalam hitungan detik; tanpa `inotifywait` watcher memakai polling 30 detik.
+3. **Saat bridge mati**: watcher dimatikan, tidak ada proses tersisa.
+
+Tool `refresh_project_index` dari `coding-mcp` tetap tersedia sebagai cadangan manual bila watcher tidak berjalan (misalnya di instalasi tanpa native host).
+
+## Alur kerja
+
+1. AI memanggil `list_projects` di `coding-mcp`.
+2. AI memilih `project_id`, lalu `git_status`, `git_diff`, `read_file`, `write_file`, `apply_patch`.
+3. AI melakukan `git_add` dan `git_commit` bila perlu.
+4. Manusia menguji.
 
 ## Uninstalasi
 
@@ -92,26 +112,15 @@ fish uninstall.fish
 Yang dibersihkan:
 
 - Manifest native host di semua lokasi Brave.
-- Skrip host di `~/.easy-vibe/native-host/`.
-- `bridge.pid` dan `native-host.log`.
+- Skrip host dan watcher di `~/.easy-vibe/native-host/`.
+- `bridge.pid`, `watcher.pid`, dan `native-host.log`.
+- Proses `easy-vibe-watcher` yang masih berjalan.
 - Paket npm global `@kieutrongthien/coding-mcp`.
 - Registry `coding-mcp` (`~/.coding-mcp`, `~/.config/coding-mcp`).
 - Direktori `~/.easy-vibe`.
 - Entri `$GOPATH/bin` dari `fish_user_paths`.
 
 Opsi: `--dry-run`, `--with-tools`, `--with-gitdesktop`, `--full`, `--yes`.
-
-## Repo baru
-
-`coding-mcp` memindai root saat init. Repo yang di-clone setelah itu tidak otomatis terdeteksi. Panggil `refresh_project_index` dari DeepSeek. Tanpa restart bridge.
-
-## Alur kerja
-
-1. AI memanggil `list_projects` di `coding-mcp`.
-2. AI memilih `project_id`, lalu `git_status`, `git_diff`, `read_file`, `write_file`, `apply_patch`.
-3. AI melakukan `git_add` dan `git_commit` bila perlu.
-4. Manusia menguji.
-5. Untuk repo baru: `refresh_project_index`.
 
 ## Troubleshooting
 
@@ -120,7 +129,8 @@ Opsi: `--dry-run`, `--with-tools`, `--with-gitdesktop`, `--full`, `--yes`.
 | Bridge tidak menyala saat tab DeepSeek dibuka | Cek manifest `com.ranggaas6.easy_vibe.json` di NativeMessagingHosts Brave; `allowed_origins` harus memuat ID extension |
 | Access forbidden (native host) | Jalankan ulang installer dengan `--extension-id` yang benar |
 | filesystem Connection error | Path absolut di `servers.json` salah |
-| coding-mcp tidak menemukan repo baru | Panggil `refresh_project_index` |
+| Repo baru tidak terdeteksi | Cek `native-host.log`; pastikan `watcher.pid` ada. Sebagai cadangan panggil `refresh_project_index` |
+| Watcher tidak berjalan | Pasang `inotify-tools`; tanpa itu watcher memakai polling 30 detik |
 | Installer menolak berjalan | Jalankan dari direktori hasil clone, `--extension-id` tidak kosong |
 
 ## Keamanan
