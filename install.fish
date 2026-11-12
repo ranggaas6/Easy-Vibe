@@ -11,7 +11,6 @@ set -l MANIFEST "$INSTALL_DIR/manifest.txt"
 set -l TOKEN_FILE "$INSTALL_DIR/github-token"
 set -l CLEAN 0
 set -l FORCE 0
-set -l USE_UPSTREAM 0
 set -l CLI_TOKEN ""
 set -l EXT_ID ""
 set -l i 1
@@ -22,10 +21,11 @@ while test $i -le (count $argv)
             set CLEAN 1
         case --force
             set FORCE 1
-        case --upstream
-            set USE_UPSTREAM 1
         case --skip-gitdesktop
             # dipertahankan untuk kompatibilitas
+        case --upstream
+            printf '[GAGAL] --upstream tidak lagi didukung: native messaging hanya ada di fork ranggaas6/web-mcp-bridge.\n' >&2
+            exit 1
         case --github-token
             set i (math $i + 1)
             if test $i -gt (count $argv)
@@ -41,7 +41,7 @@ while test $i -le (count $argv)
             end
             set EXT_ID $argv[$i]
         case -h --help
-            echo "Pemakaian: fish install.fish [--clean] [--force] [--upstream] [--github-token TOKEN] [--extension-id ID]"
+            echo "Pemakaian: fish install.fish [--clean] [--force] [--github-token TOKEN] --extension-id ID"
             exit 0
         case '*'
             echo "Opsi tidak dikenal: $a" >&2
@@ -78,13 +78,6 @@ set -l CONTROL_PORT 8199
 set -l LAUNCHER_PORT 8198
 set -l CODING_PORT 8190
 set -l FS_PORT 8192
-if test $USE_UPSTREAM -eq 1
-    set BRIDGE_REPO "https://github.com/AstraxOf/web-mcp-bridge"
-    set CONTROL_PORT 8099
-    set LAUNCHER_PORT 8098
-    set CODING_PORT 8090
-    set FS_PORT 8092
-end
 if not command -v pacman >/dev/null 2>&1
     printf '[GAGAL] pacman tidak ditemukan\n' >&2
     exit 1
