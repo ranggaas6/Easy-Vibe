@@ -19,7 +19,7 @@ end
 
 function install_prasyarat
     ib_langkah "Memasang prasyarat dasar"
-    set -l paket git python python-pip go curl base-devel
+    set -l paket git python python-pip go curl base-devel nodejs npm
     set -l newly_installed
 
     for p in $paket
@@ -62,5 +62,33 @@ function install_filesystem
         ib_ok "mcp-filesystem-server terpasang di $gopath_bin"
     else
         ib_warn "Binary ada di $gopath_bin. Jalankan: fish_add_path $gopath_bin"
+    end
+end
+
+function install_coding_mcp
+    ib_langkah "Memasang coding-mcp"
+    set -l root "/home/saputraangga214"
+    if not ib_ada coding-mcp
+        npm install -g @kieutrongthien/coding-mcp
+        or begin
+            printf '[GAGAL] npm install coding-mcp gagal\n' >&2
+            return 1
+        end
+        set -a manifest_lines "npm-global @kieutrongthien/coding-mcp"
+    end
+    if not ib_ada coding-mcp
+        printf '[GAGAL] coding-mcp tidak ditemukan setelah instalasi\n' >&2
+        return 1
+    end
+    if not test -d $root
+        printf '[PERINGATAN] Root %s tidak ada, memakai HOME\n' $root
+        set root $HOME
+    end
+    coding-mcp init $root
+    and set -a manifest_lines "coding-mcp-root $root"
+    and ib_ok "coding-mcp diinisialisasi pada $root"
+    or begin
+        printf '[GAGAL] coding-mcp init gagal\n' >&2
+        return 1
     end
 end
