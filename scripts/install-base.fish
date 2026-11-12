@@ -14,7 +14,7 @@ function ib_langkah -a msg
 end
 function install_prasyarat
     ib_langkah "Memasang prasyarat dasar"
-    set -l paket git python python-pip go curl base-devel nodejs npm
+    set -l paket git python python-pip go curl base-devel nodejs npm inotify-tools
     set -l newly_installed
     for p in $paket
         if not pacman -Qi $p >/dev/null 2>&1
@@ -31,7 +31,11 @@ function install_prasyarat
             set -a manifest_lines "pacman-pkg $p"
         end
     end
-    ib_ok "Paket dasar terpasang"
+    if not ib_ada inotifywait
+        printf '[GAGAL] inotifywait tidak ditemukan setelah instalasi\n' >&2
+        return 1
+    end
+    ib_ok "Paket dasar terpasang (inotifywait: "(command -v inotifywait)")"
 end
 function install_filesystem
     ib_langkah "Memasang mcp-filesystem-server"
@@ -70,8 +74,6 @@ function install_coding_mcp
         return 1
     end
     set -g CODING_BIN (command -v coding-mcp)
-    # Selalu catat paket npm global, terlepas dari apakah baru dipasang atau sudah ada,
-    # agar uninstaller tahu harus mencopotnya.
     if not contains "npm-global @kieutrongthien/coding-mcp" $manifest_lines
         set -a manifest_lines "npm-global @kieutrongthien/coding-mcp"
     end
