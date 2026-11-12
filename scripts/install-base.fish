@@ -1,5 +1,4 @@
 # Modul prasyarat dasar untuk install.fish
-# Mengharapkan: manifest_lines (array global)
 function ib_ada -a cmd
     command -v $cmd >/dev/null 2>&1
 end
@@ -88,4 +87,28 @@ function install_coding_mcp
         printf '[GAGAL] coding-mcp init gagal\n' >&2
         return 1
     end
+end
+function install_github_mcp
+    ib_langkah "Memasang github-mcp-server-kosta"
+    if not ib_ada github-mcp-server-kosta
+        npm install -g github-mcp-server-kosta
+        or begin
+            printf '[GAGAL] npm install github-mcp-server-kosta gagal\n' >&2
+            return 1
+        end
+    end
+    set -l npmbin (npm config get prefix)/bin
+    if test -f "$npmbin/github-mcp-server"
+        rm -f "$npmbin/github-mcp-server"
+        ib_warn "Binary lama github-mcp-server dihapus (konflik dengan -kosta)"
+    end
+    if not ib_ada github-mcp-server-kosta
+        printf '[GAGAL] github-mcp-server-kosta tidak ditemukan\n' >&2
+        return 1
+    end
+    set -g GITHUB_BIN (command -v github-mcp-server-kosta)
+    if not contains "npm-global github-mcp-server-kosta" $manifest_lines
+        set -a manifest_lines "npm-global github-mcp-server-kosta"
+    end
+    ib_ok "github-mcp-server-kosta: $GITHUB_BIN"
 end
