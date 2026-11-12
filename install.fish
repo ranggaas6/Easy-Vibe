@@ -51,7 +51,23 @@ if test -n "$GH_TOKEN"
     gh_token_save $GH_TOKEN
   end
 else
-  printf '[PERINGATAN] Token GitHub tidak diberikan. Server github tidak akan aktif.\n'
+  printf '\n'
+  printf '  Token GitHub tidak ditemukan.\n'
+  printf '  Server github memerlukan PAT dengan scope \'repo\'.\n'
+  printf '  Tekan Enter untuk melewati (server github tidak akan aktif).\n'
+  read -l -s -P '  GitHub token: ' input_token
+  printf '\n'
+  if test -n "$input_token"
+    if not gh_token_validate $input_token
+      printf '[GAGAL] Format token tidak valid\n' >&2
+      exit 1
+    end
+    set -g GH_TOKEN $input_token
+    gh_token_save $GH_TOKEN
+    printf '[OK] Token disimpan\n'
+  else
+    printf '[PERINGATAN] Tanpa token, server github tidak akan aktif.\n'
+  end
 end
 if test -z "$EXT_ID"; printf '[GAGAL] --extension-id wajib diisi\n' >&2; exit 1; end
 set -l BRIDGE_REPO "https://github.com/ranggaas6/web-mcp-bridge"
@@ -72,6 +88,9 @@ else if test -f "$MANIFEST" -a $FORCE -eq 0
   exit 1
 end
 mkdir -p "$INSTALL_DIR"
+if test -n "$GH_TOKEN"
+  gh_token_save $GH_TOKEN
+end
 set -g manifest_lines "installed_at "(date -Iseconds)
 set -g manifest_lines $manifest_lines "bridge_source $BRIDGE_REPO"
 set -g manifest_lines $manifest_lines "extension-id $EXT_ID"
