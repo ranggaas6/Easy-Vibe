@@ -13,6 +13,7 @@ set -l CLEAN 0
 set -l FORCE 0
 set -l USE_UPSTREAM 0
 set -l CLI_TOKEN ""
+set -l EXT_ID ""
 set -l i 1
 while test $i -le (count $argv)
     set -l a $argv[$i]
@@ -24,7 +25,7 @@ while test $i -le (count $argv)
         case --upstream
             set USE_UPSTREAM 1
         case --skip-gitdesktop
-            # dipertahankan untuk kompatibilitas; tidak dipakai lagi
+            # dipertahankan untuk kompatibilitas
         case --github-token
             set i (math $i + 1)
             if test $i -gt (count $argv)
@@ -32,8 +33,15 @@ while test $i -le (count $argv)
                 exit 1
             end
             set CLI_TOKEN $argv[$i]
+        case --extension-id
+            set i (math $i + 1)
+            if test $i -gt (count $argv)
+                echo "--extension-id butuh nilai" >&2
+                exit 1
+            end
+            set EXT_ID $argv[$i]
         case -h --help
-            echo "Pemakaian: fish install.fish [--clean] [--force] [--upstream] [--github-token TOKEN]"
+            echo "Pemakaian: fish install.fish [--clean] [--force] [--upstream] [--github-token TOKEN] [--extension-id ID]"
             exit 0
         case '*'
             echo "Opsi tidak dikenal: $a" >&2
@@ -60,6 +68,10 @@ if test -n "$GH_TOKEN"
     end
 else
     printf '[PERINGATAN] Token GitHub tidak diberikan.\n'
+end
+if test -z "$EXT_ID"
+    printf '[GAGAL] --extension-id wajib diisi (ID extension Web MCP Bridge di brave://extensions)\n' >&2
+    exit 1
 end
 set -l BRIDGE_REPO "https://github.com/ranggaas6/web-mcp-bridge"
 set -l CONTROL_PORT 8199
@@ -90,6 +102,7 @@ end
 mkdir -p "$INSTALL_DIR"
 set -g manifest_lines "installed_at "(date -Iseconds)
 set -a manifest_lines "bridge_source $BRIDGE_REPO"
+set -a manifest_lines "extension-id $EXT_ID"
 if test -n "$GH_TOKEN"
     set -a manifest_lines "github-token-file $TOKEN_FILE"
 end
@@ -99,7 +112,7 @@ install_coding_mcp; or exit 1
 printf '\n== Web MCP Bridge ==\n'
 install_bridge $BRIDGE_REPO $BRIDGE_DIR $VENV_DIR $GH_TOKEN; or exit 1
 printf '\n== Native host ==\n'
-install_native_host "$SCRIPT_DIR/scripts/native-host/easy-vibe-host" manifest_lines; or exit 1
+install_native_host "$SCRIPT_DIR/scripts/native-host/easy-vibe-host" manifest_lines $EXT_ID; or exit 1
 printf '\n== Menulis servers.json ==\n'
 printf '{\n  "control_port": %d,\n  "launcher_port": %d,\n  "servers": [\n    {\n      "name": "coding-mcp",\n      "port": %d,\n      "command": ["coding-mcp", "serve", "--transport", "stdio"]\n    },\n    {\n      "name": "filesystem",\n      "port": %d,\n      "command": ["mcp-filesystem-server", "%s"]\n    }\n  ]\n}\n' $CONTROL_PORT $LAUNCHER_PORT $CODING_PORT $FS_PORT $HOME > "$BRIDGE_DIR/server/servers.json"
 set -l launcher "$INSTALL_DIR/start-easy-vibe.fish"
