@@ -1,70 +1,60 @@
 # Modul prasyarat dasar untuk install.fish
 # Mengharapkan: manifest_lines (array global)
-
 function ib_ada -a cmd
     command -v $cmd >/dev/null 2>&1
 end
-
 function ib_warn -a msg
     printf '[PERINGATAN] %s\n' $msg
 end
-
 function ib_ok -a msg
     printf '[OK]   %s\n' $msg
 end
-
 function ib_langkah -a msg
     printf '\n== %s ==\n' $msg
 end
-
 function install_prasyarat
     ib_langkah "Memasang prasyarat dasar"
     set -l paket git python python-pip go curl base-devel nodejs npm
     set -l newly_installed
-
     for p in $paket
         if not pacman -Qi $p >/dev/null 2>&1
             set -a newly_installed $p
         end
     end
-
     sudo pacman -S --needed --noconfirm $paket
     or begin
         printf '[GAGAL] Paket dasar gagal dipasang\n' >&2
         return 1
     end
-
     if test (count $newly_installed) -gt 0
         for p in $newly_installed
             set -a manifest_lines "pacman-pkg $p"
         end
     end
-
     ib_ok "Paket dasar terpasang"
 end
-
 function install_filesystem
     ib_langkah "Memasang mcp-filesystem-server"
-    if ib_ada mcp-filesystem-server
-        ib_ok "mcp-filesystem-server sudah terpasang"
-        return 0
+    set -l gopath_bin (go env GOPATH)/bin
+    if not contains "$gopath_bin" $fish_user_paths
+        fish_add_path $gopath_bin
+        set -a manifest_lines "fish_user_paths $gopath_bin"
     end
-    go install github.com/mark3labs/mcp-filesystem-server@latest
-    or begin
-        printf '[GAGAL] go install gagal\n' >&2
+    if not ib_ada mcp-filesystem-server
+        go install github.com/mark3labs/mcp-filesystem-server@latest
+        or begin
+            printf '[GAGAL] go install gagal\n' >&2
+            return 1
+        end
+        set -a manifest_lines "mcp-filesystem-server $gopath_bin/mcp-filesystem-server"
+    end
+    if not ib_ada mcp-filesystem-server
+        printf '[GAGAL] mcp-filesystem-server tidak ditemukan\n' >&2
         return 1
     end
-    set -l gopath_bin (go env GOPATH)/bin
-    fish_add_path $gopath_bin
-    set -a manifest_lines "fish_user_paths $gopath_bin"
-    set -a manifest_lines "mcp-filesystem-server $gopath_bin/mcp-filesystem-server"
-    if ib_ada mcp-filesystem-server
-        ib_ok "mcp-filesystem-server terpasang di $gopath_bin"
-    else
-        ib_warn "Binary ada di $gopath_bin. Jalankan: fish_add_path $gopath_bin"
-    end
+    set -g FS_BIN (command -v mcp-filesystem-server)
+    ib_ok "mcp-filesystem-server: $FS_BIN"
 end
-
 function install_coding_mcp
     ib_langkah "Memasang coding-mcp"
     set -l root "/home/saputraangga214"
@@ -80,13 +70,14 @@ function install_coding_mcp
         printf '[GAGAL] coding-mcp tidak ditemukan setelah instalasi\n' >&2
         return 1
     end
+    set -g CODING_BIN (command -v coding-mcp)
     if not test -d $root
         printf '[PERINGATAN] Root %s tidak ada, memakai HOME\n' $root
         set root $HOME
     end
     coding-mcp init $root
     and set -a manifest_lines "coding-mcp-root $root"
-    and ib_ok "coding-mcp diinisialisasi pada $root"
+    and ib_ok "coding-mcp: $CODING_BIN (root $root)"
     or begin
         printf '[GAGAL] coding-mcp init gagal\n' >&2
         return 1
