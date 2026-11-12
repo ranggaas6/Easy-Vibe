@@ -64,13 +64,17 @@ function install_coding_mcp
             printf '[GAGAL] npm install coding-mcp gagal\n' >&2
             return 1
         end
-        set -a manifest_lines "npm-global @kieutrongthien/coding-mcp"
     end
     if not ib_ada coding-mcp
         printf '[GAGAL] coding-mcp tidak ditemukan setelah instalasi\n' >&2
         return 1
     end
     set -g CODING_BIN (command -v coding-mcp)
+    # Selalu catat paket npm global, terlepas dari apakah baru dipasang atau sudah ada,
+    # agar uninstaller tahu harus mencopotnya.
+    if not contains "npm-global @kieutrongthien/coding-mcp" $manifest_lines
+        set -a manifest_lines "npm-global @kieutrongthien/coding-mcp"
+    end
     if not test -d $root
         printf '[PERINGATAN] Root %s tidak ada, memakai HOME\n' $root
         set root $HOME

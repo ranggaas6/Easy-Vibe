@@ -67,12 +67,11 @@ if test -f "$MANIFEST"
             case native-host-manifest
                 set -a NH_MANIFESTS $parts[2]
             case npm-global
-                if test $TOOLS -eq 1
-                    if test $DRY -eq 1
-                        say "akan dicopot via npm: $parts[2]"
-                    else
-                        npm uninstall -g $parts[2]; say "dicopot via npm: $parts[2]"
-                    end
+                # coding-mcp adalah komponen inti: selalu dicopot
+                if test $DRY -eq 1
+                    say "akan dicopot via npm: $parts[2]"
+                else
+                    npm uninstall -g $parts[2]; say "dicopot via npm: $parts[2]"
                 end
             case coding-mcp-root
                 set -a CODING_ROOTS $parts[2]
