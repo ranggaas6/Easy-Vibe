@@ -94,7 +94,7 @@ for f in (ls "$HOME/.config/systemd/user" 2>/dev/null)
   end
 end
 say "== Proses berjalan =="
-for n in easy-vibe-watcher mcp_ws_bridge.py coding-mcp gitdesktop-mcp gitrs-mcp mcp-filesystem-server easy-vibe-host
+for n in easy-vibe-watcher mcp_ws_bridge.py coding-mcp github-mcp-server-kosta github-mcp-server gitdesktop-mcp gitrs-mcp mcp-filesystem-server easy-vibe-host
   if pgrep -f "$n" >/dev/null 2>&1
     if test $DRY -eq 0
       pkill -f "$n" 2>/dev/null; say "dihentikan: $n"
@@ -132,7 +132,7 @@ end
 if test $FULL -eq 1
   say "== Paket pacman dasar =="
   if test (count $PKGS_TO_REMOVE) -eq 0
-    for p in git python python-pip go curl base-devel nodejs npm
+    for p in git python python-pip go curl base-devel nodejs npm inotify-tools
       if pacman -Qi $p >/dev/null 2>&1; set -a PKGS_TO_REMOVE $p; end
     end
   end
