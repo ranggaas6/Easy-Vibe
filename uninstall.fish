@@ -67,7 +67,6 @@ if test -f "$MANIFEST"
             case native-host-manifest
                 set -a NH_MANIFESTS $parts[2]
             case npm-global
-                # coding-mcp adalah komponen inti: selalu dicopot
                 if test $DRY -eq 1
                     say "akan dicopot via npm: $parts[2]"
                 else
@@ -83,10 +82,14 @@ else
     say "== Manifest tidak ditemukan (fallback) =="
 end
 say "== Native host di Brave =="
+# Hapus manifest native host dari lokasi standar Brave,
+# kecuali yang sudah tercatat di manifest (agar tidak muncul dua kali).
 for d in "$HOME/.config/BraveSoftware/Brave-Browser/NativeMessagingHosts" "$HOME/.config/BraveSoftware/Brave-Browser-Beta/NativeMessagingHosts" "$HOME/.var/app/com.brave.Browser/config/BraveSoftware/Brave-Browser/NativeMessagingHosts"
     set -l mf "$d/$NH_NAME.json"
     if test -e "$mf"
-        rm_path "$mf"
+        if not contains "$mf" $NH_MANIFESTS
+            rm_path "$mf"
+        end
     end
 end
 for mf in $NH_MANIFESTS
