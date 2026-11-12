@@ -4,10 +4,12 @@ H = os.path.expanduser("~")
 D = os.path.join(H, ".easy-vibe")
 L = os.path.join(D, "start-easy-vibe.fish")
 P = os.path.join(D, "bridge.pid")
+W = os.path.join(D, "watcher.pid")
 G = os.path.join(D, "native-host.log")
+WH = os.path.join(D, "native-host", "easy-vibe-watcher")
+ROOT = os.environ.get("EASY_VIBE_ROOT", H)
 def log(m):
-    try:
-        open(G,"a").write(time.strftime("%F %T ")+m+"\n")
+    try: open(G,"a").write(time.strftime("%F %T ")+m+"\n")
     except: pass
 def rd():
     b = sys.stdin.buffer.read(4)
@@ -22,23 +24,56 @@ def wr(o):
     d = json.dumps(o).encode("utf-8")
     sys.stdout.buffer.write(struct.pack("<I",len(d))+d)
     sys.stdout.buffer.flush()
-def run():
-    if not os.path.exists(P): return False
-    try: p=int(open(P).read().strip())
+def alive(p):
+    if not os.path.exists(p): return False
+    try: x=int(open(p).read().strip())
     except: return False
-    try: os.kill(p,0); return True
+    try: os.kill(x,0); return True
     except OSError: return False
+def run(): return alive(P)
+def wrun(): return alive(W)
+def cbin():
+    for c in (os.path.join(H,".npm-global","bin","coding-mcp"),"coding-mcp"):
+        if os.path.exists(c) or subprocess.run(["command","-v",c],capture_output=True).returncode==0:
+            return c
+    return "coding-mcp"
+def rescan():
+    try:
+        subprocess.run([cbin(),"init",ROOT],capture_output=True,timeout=120)
+        log("rescan "+ROOT)
+    except Exception as e:
+        log("rescan gagal "+str(e))
+def start_watcher():
+    if wrun(): return
+    if not os.path.exists(WH): return
+    try:
+        os.chmod(WH,0o755)
+        env=dict(os.environ); env["EASY_VIBE_ROOT"]=ROOT
+        pr=subprocess.Popen(["python3",WH],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True,env=env)
+        open(W,"w").write(str(pr.pid))
+        log("watcher "+str(pr.pid))
+    except Exception as e:
+        log("watcher gagal "+str(e))
+def stop_watcher():
+    if os.path.exists(W):
+        try: os.kill(int(open(W).read().strip()),signal.SIGTERM)
+        except: pass
+        try: os.remove(W)
+        except: pass
 def start():
     if run(): return {"ok":True,"already":True}
     if not os.path.exists(L): return {"ok":False,"error":"launcher hilang"}
+    rescan()
     try:
-        pr = subprocess.Popen(["fish",L],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)
+        pr=subprocess.Popen(["fish",L],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)
         open(P,"w").write(str(pr.pid))
         log("start "+str(pr.pid))
+        start_watcher()
         return {"ok":True,"pid":pr.pid}
     except Exception as e:
         log("start gagal "+str(e)); return {"ok":False,"error":str(e)}
 def stop():
+    stop_watcher()
     s=[]
     if os.path.exists(P):
         try:
@@ -46,19 +81,20 @@ def stop():
         except: pass
         try: os.remove(P)
         except: pass
-    for pat in ("mcp_ws_bridge.py","coding-mcp"):
+    for pat in ("mcp_ws_bridge.py","coding-mcp","easy-vibe-watcher"):
         try: subprocess.run(["pkill","-f",pat],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
         except: pass
     log("stop "+str(s)); return {"ok":True,"stopped":s}
 def main():
     log("host mulai")
     while True:
-        m = rd()
+        m=rd()
         if m is None: break
-        a = m.get("action")
+        a=m.get("action")
         if a=="start": wr(start())
         elif a=="stop": wr(stop())
-        elif a=="status": wr({"ok":True,"running":run()})
+        elif a=="status": wr({"ok":True,"running":run(),"watcher":wrun()})
+        elif a=="rescan": rescan(); wr({"ok":True})
         else: wr({"ok":False,"error":"aksi tidak dikenal"})
     log("EOF, stop")
     stop()
