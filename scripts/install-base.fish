@@ -11,6 +11,28 @@ end
 function ib_langkah -a msg
     printf '\n== %s ==\n' $msg
 end
+function setup_npm_prefix
+    set -l pfx "$HOME/.npm-global"
+    set -l bin "$pfx/bin"
+    mkdir -p $bin
+    set -l cur (npm config get prefix 2>/dev/null)
+    if test "$cur" != "$pfx"
+        npm config set prefix $pfx
+        or begin
+            printf '[GAGAL] npm config set prefix gagal\n' >&2
+            return 1
+        end
+    end
+    if not contains "$bin" $fish_user_paths
+        fish_add_path $bin
+        set -a manifest_lines "fish_user_paths $bin"
+    end
+    if not contains "$bin" (string split : -- $PATH)
+        set -gx PATH $bin $PATH
+    end
+    set -g NPM_BIN $bin
+    ib_ok "npm prefix: $pfx"
+end
 function install_prasyarat
     ib_langkah "Memasang prasyarat dasar"
     set -l paket git python python-pip go curl base-devel nodejs npm inotify-tools
@@ -60,6 +82,7 @@ function install_filesystem
 end
 function install_coding_mcp
     ib_langkah "Memasang coding-mcp"
+    setup_npm_prefix; or return 1
     set -l root "/home/saputraangga214"
     if not ib_ada coding-mcp
         npm install -g @kieutrongthien/coding-mcp
@@ -90,6 +113,7 @@ function install_coding_mcp
 end
 function install_github_mcp
     ib_langkah "Memasang github-mcp-server-kosta"
+    setup_npm_prefix; or return 1
     if not ib_ada github-mcp-server-kosta
         npm install -g github-mcp-server-kosta
         or begin
@@ -97,9 +121,8 @@ function install_github_mcp
             return 1
         end
     end
-    set -l npmbin (npm config get prefix)/bin
-    if test -f "$npmbin/github-mcp-server"
-        rm -f "$npmbin/github-mcp-server"
+    if test -f "$NPM_BIN/github-mcp-server"
+        rm -f "$NPM_BIN/github-mcp-server"
         ib_warn "Binary lama github-mcp-server dihapus (konflik dengan -kosta)"
     end
     if not ib_ada github-mcp-server-kosta
