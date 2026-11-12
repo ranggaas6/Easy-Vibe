@@ -51,13 +51,14 @@ if test -n "$GH_TOKEN"
     gh_token_save $GH_TOKEN
   end
 else
-  printf '[PERINGATAN] Token GitHub tidak diberikan.\n'
+  printf '[PERINGATAN] Token GitHub tidak diberikan. Server github tidak akan aktif.\n'
 end
 if test -z "$EXT_ID"; printf '[GAGAL] --extension-id wajib diisi\n' >&2; exit 1; end
 set -l BRIDGE_REPO "https://github.com/ranggaas6/web-mcp-bridge"
 set -l CONTROL_PORT 8199
 set -l LAUNCHER_PORT 8198
 set -l CODING_PORT 8190
+set -l GITHUB_PORT 8191
 set -l FS_PORT 8192
 if not command -v pacman >/dev/null 2>&1; printf '[GAGAL] pacman tidak ditemukan\n' >&2; exit 1; end
 if test $CLEAN -eq 1
@@ -80,13 +81,22 @@ end
 install_prasyarat; or exit 1
 install_filesystem; or exit 1
 install_coding_mcp; or exit 1
-if test -z "$CODING_BIN"; or test -z "$FS_BIN"; printf '[GAGAL] Path tidak terdeteksi\n' >&2; exit 1; end
+install_github_mcp; or exit 1
+if test -z "$CODING_BIN"; or test -z "$FS_BIN"; or test -z "$GITHUB_BIN"
+  printf '[GAGAL] Path server tidak lengkap\n' >&2
+  exit 1
+end
 printf '\n== Web MCP Bridge ==\n'
 install_bridge $BRIDGE_REPO $BRIDGE_DIR $VENV_DIR $GH_TOKEN; or exit 1
 printf '\n== Native host ==\n'
 install_native_host "$SCRIPT_DIR/scripts/native-host/easy-vibe-host" $EXT_ID "$SCRIPT_DIR/scripts/native-host/easy-vibe-watcher"; or exit 1
 printf '\n== Menulis servers.json ==\n'
-printf '{\n  "control_port": %d,\n  "launcher_port": %d,\n  "servers": [\n    { "name": "coding-mcp", "port": %d, "command": ["%s", "serve", "--transport", "stdio"] },\n    { "name": "filesystem", "port": %d, "command": ["%s", "%s"] }\n  ]\n}\n' $CONTROL_PORT $LAUNCHER_PORT $CODING_PORT $CODING_BIN $FS_PORT $FS_BIN $HOME > "$BRIDGE_DIR/server/servers.json"
+set -l gh_env ""
+if test -n "$GH_TOKEN"
+  set gh_env "\"env\": { \"GITHUB_TOKEN\": \"$GH_TOKEN\" }, "
+end
+printf '{\n  "control_port": %d,\n  "launcher_port": %d,\n  "servers": [\n    { "name": "coding-mcp", "port": %d, "command": ["%s", "serve", "--transport", "stdio"] },\n    { %s"name": "github", "port": %d, "command": ["%s"] },\n    { "name": "filesystem", "port": %d, "command": ["%s", "%s"] }\n  ]\n}\n' $CONTROL_PORT $LAUNCHER_PORT $CODING_PORT $CODING_BIN "$gh_env" $GITHUB_PORT $GITHUB_BIN $FS_PORT $FS_BIN $HOME > "$BRIDGE_DIR/server/servers.json"
+chmod 600 "$BRIDGE_DIR/server/servers.json"
 set -l launcher "$INSTALL_DIR/start-easy-vibe.fish"
 printf '#!/usr/bin/env fish\ncd "%s"\nexec "%s/bin/python" server/mcp_ws_bridge.py --config server/servers.json\n' "$BRIDGE_DIR" "$VENV_DIR" > $launcher
 chmod +x $launcher
@@ -95,5 +105,6 @@ sleep 1
 printf '%s\n' $manifest_lines > "$MANIFEST"
 printf '\n== Selesai ==\n'
 printf 'coding-mcp: %s\n' $CODING_BIN
+printf 'github:     %s\n' $GITHUB_BIN
 printf 'filesystem: %s\n' $FS_BIN
 printf 'Pemicu: buka tab DeepSeek di Brave.\n'
