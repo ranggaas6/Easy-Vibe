@@ -8,14 +8,21 @@ function nh_hosts
         if test -d (dirname $d); printf '%s\n' $d; end
     end
 end
-# Tanpa parameter manifest_lines: variabel global milik pemanggil dipakai langsung.
-function install_native_host -a src extension_id
+function install_native_host -a src extension_id watcher_src
     if test -z "$extension_id"
         printf '[GAGAL] extension_id kosong\n' >&2; return 1
     end
-    set -l t "$HOME/.easy-vibe/native-host/easy-vibe-host"
-    mkdir -p (dirname $t); cp "$src" "$t"; chmod +x "$t"
+    set -l dir "$HOME/.easy-vibe/native-host"
+    mkdir -p $dir
+    set -l t "$dir/easy-vibe-host"
+    cp "$src" "$t"; chmod +x "$t"
     set -g manifest_lines $manifest_lines "native-host-script $t"
+    if test -n "$watcher_src"; and test -f "$watcher_src"
+        set -l w "$dir/easy-vibe-watcher"
+        cp "$watcher_src" "$w"; chmod +x "$w"
+        set -g manifest_lines $manifest_lines "native-host-watcher $w"
+        printf '[OK]   Watcher: %s\n' $w
+    end
     for d in (nh_hosts)
         mkdir -p $d; set -l mf "$d/$NH_NAME.json"
         printf '{\n  "name": "%s",\n  "description": "Easy-Vibe bridge trigger",\n  "path": "%s",\n  "type": "stdio",\n  "allowed_origins": ["chrome-extension://%s/"]\n}\n' $NH_NAME $t $extension_id > $mf
