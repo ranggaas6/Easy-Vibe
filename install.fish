@@ -101,10 +101,10 @@ else if test -f "$MANIFEST" -a $FORCE -eq 0
 end
 mkdir -p "$INSTALL_DIR"
 set -g manifest_lines "installed_at "(date -Iseconds)
-set -a manifest_lines "bridge_source $BRIDGE_REPO"
-set -a manifest_lines "extension-id $EXT_ID"
+set -g manifest_lines $manifest_lines "bridge_source $BRIDGE_REPO"
+set -g manifest_lines $manifest_lines "extension-id $EXT_ID"
 if test -n "$GH_TOKEN"
-    set -a manifest_lines "github-token-file $TOKEN_FILE"
+    set -g manifest_lines $manifest_lines "github-token-file $TOKEN_FILE"
 end
 install_prasyarat; or exit 1
 install_filesystem; or exit 1
@@ -116,7 +116,7 @@ end
 printf '\n== Web MCP Bridge ==\n'
 install_bridge $BRIDGE_REPO $BRIDGE_DIR $VENV_DIR $GH_TOKEN; or exit 1
 printf '\n== Native host ==\n'
-install_native_host "$SCRIPT_DIR/scripts/native-host/easy-vibe-host" manifest_lines $EXT_ID; or exit 1
+install_native_host "$SCRIPT_DIR/scripts/native-host/easy-vibe-host" $EXT_ID; or exit 1
 printf '\n== Menulis servers.json ==\n'
 printf '{\n  "control_port": %d,\n  "launcher_port": %d,\n  "servers": [\n    {\n      "name": "coding-mcp",\n      "port": %d,\n      "command": ["%s", "serve", "--transport", "stdio"]\n    },\n    {\n      "name": "filesystem",\n      "port": %d,\n      "command": ["%s", "%s"]\n    }\n  ]\n}\n' $CONTROL_PORT $LAUNCHER_PORT $CODING_PORT $CODING_BIN $FS_PORT $FS_BIN $HOME > "$BRIDGE_DIR/server/servers.json"
 set -l launcher "$INSTALL_DIR/start-easy-vibe.fish"
