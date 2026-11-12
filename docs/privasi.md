@@ -4,15 +4,9 @@ Dokumen ini meluruskan klaim privasi pada arsitektur vibe coding lokal Easy-Vibe
 
 ## Masalah utama
 
-Arsitektur ini **tidak bisa disebut sistem 100% privat atau 100% lokal**. Data dikirim ke DeepSeek melalui internet.
+Arsitektur ini **tidak bisa disebut 100% privat atau 100% lokal**. Data dikirim ke DeepSeek melalui internet.
 
-Alur yang sebenarnya bukan:
-
-```
-DeepSeek -> Bridge -> MCP -> Komputer
-```
-
-Melainkan:
+Alur yang sebenarnya:
 
 ```
                  INTERNET
@@ -27,10 +21,10 @@ Melainkan:
                      |
               Komputer lokal
                      |
-       File, Git lokal, dan GUI Desktop
+       File, Git lokal, dan tool coding-mcp
 ```
 
-Ketika DeepSeek membaca kode melalui `filesystem`, atau memeriksa riwayat Git melalui `git` atau `gitdesktop`, hasil pembacaan dikirim kembali ke halaman chat dan menjadi bagian dari percakapan.
+Ketika DeepSeek membaca kode melalui `filesystem`, atau memeriksa riwayat Git melalui `coding-mcp`, hasil pembacaan dikirim kembali ke halaman chat dan menjadi bagian percakapan.
 
 ## Yang memang benar
 
@@ -41,8 +35,8 @@ Ketika DeepSeek membaca kode melalui `filesystem`, atau memeriksa riwayat Git me
 
 ## Yang tetap dapat keluar dari komputer
 
-- Potongan kode (dibaca via `filesystem`)
-- Diff, log, dan status Git (dibaca via `git` atau `gitdesktop`)
+- Potongan kode (dibaca via `filesystem` atau `read_file` di coding-mcp)
+- Diff, log, dan status Git (dibaca via `coding-mcp`)
 - Nama file dan struktur direktori
 - Konfigurasi
 - Hasil tool yang diberikan kepada DeepSeek
@@ -62,10 +56,8 @@ Kebijakan privasi DeepSeek yang berlaku menyebutkan bahwa prompt, input, file un
 
 ## Implikasi praktis
 
-Perbedaan ini krusial terutama bila proyek berisi kode komersial, kredensial, atau informasi rahasia. Sebelum memakai DeepSeek Web:
-
 1. Tentukan klasifikasi sensitivitas proyek.
 2. Jangan pernah mengirim kredensial, API key, atau `.env`.
-3. Pilih konteks yang dikirim ke model secara sadar (batasi `filesystem` jika tidak ingin seluruh `$HOME` terbaca).
+3. Pilih konteks yang dikirim ke model secara sadar (batasi `filesystem` dan root `coding-mcp` jika tidak ingin seluruh `$HOME` terbaca).
 4. Aktifkan opsi menolak penggunaan data untuk pelatihan bila tersedia.
 5. Untuk proyek sangat sensitif, pertimbangkan model lokal penuh, bukan arsitektur ini.

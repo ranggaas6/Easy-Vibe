@@ -4,35 +4,35 @@ Daftar risiko arsitektur vibe coding lokal Easy-Vibe beserta mitigasinya.
 
 | Risiko | Sumber | Dampak | Mitigasi |
 |---|---|---|---|
-| Kebocoran kode atau konfigurasi ke cloud | Alur DeepSeek Web | Data dikumpulkan dan diproses di luar kendali pengguna | Pemilihan konteks, hindari data sensitif, istilah yang akurat |
-| Prompt injection via isi file | `filesystem` dan `git` dengan akses luas | Timpa, hapus, atau rusak file | Mode persetujuan, batasi direktori jika tidak perlu, sandbox |
-| Akses direktori melebihi batas proyek | `filesystem` dan `git` dikonfigurasi ke `$HOME` | Kebocoran data di luar repo yang sedang dikerjakan | Gunakan `repo_path` spesifik, hati-hati saat memberikan instruksi ke AI |
-| Operasi Git destruktif | tool `git_commit`, `git_diff`, dll. | Kehilangan perubahan atau kebingungan status | Review manual, commit rutin, hindari perintah destruktif tanpa pengawasan |
-| Konflik tiga jalur akses | `gitdesktop`, `git`, dan `filesystem` | Perubahan tidak sinkron | Urutan kerja konsisten (baca status sebelum menulis, review diff sebelum commit) |
-| Tool tumpang tindih | Banyak MCP aktif (122 dari GitDesktop, 4 dari git, 14 dari filesystem) | Konteks membengkak, model bingung | Pilih tool yang paling tepat; matikan server yang tidak dipakai jika memungkinkan |
-| Ketergantungan format atau UI | Web MCP Bridge | Alur putus bila UI atau format berubah | Uji berkala, pantau versi |
-| Klaim hemat token dibesar-besarkan | README proyek | Ekspektasi keliru | Ukur sendiri |
-| Lampiran panjang melebihi konteks | Bridge mengirim teks utuh | Panggilan gagal atau terpotong | Baca bertahap, batasi ukuran |
-| Kredensial terbaca tool | Akses `filesystem` terlalu luas | Kompromi akun | Batasi direktori, blokir akses ke `.env` atau kredensial SSH |
+| Kebocoran kode ke cloud | DeepSeek Web | Data diproses di luar kendali | Pemilihan konteks, hindari data sensitif, istilah akurat |
+| Prompt injection via isi file | filesystem dan coding-mcp | Timpa/hapus/rusak file | Mode persetujuan, batasi direktori, sandbox |
+| Akses melebihi proyek | filesystem dan coding-mcp di $HOME | Kebocoran di luar repo | Pilih project_id spesifik, hati-hati saat instruksi ke AI |
+| Operasi Git destruktif | git_add, git_commit, git_restore | Kehilangan perubahan | Review manual, commit rutin |
+| Konflik dua jalur akses | coding-mcp dan filesystem | Perubahan tidak sinkron | Urutan kerja konsisten |
+| Tool tumpang tindih | coding-mcp sudah mencakup Git dan berkas | Konteks membengkak | Gunakan coding-mcp untuk repo, filesystem hanya untuk berkas di luar repo |
+| Ketergantungan format/UI | Web MCP Bridge | Alur putus bila UI berubah | Uji berkala, pantau versi |
+| Lampiran panjang melebihi konteks | Bridge mengirim teks utuh | Panggilan gagal | Baca bertahap, batasi ukuran |
+| Kredensial terbaca tool | Akses filesystem terlalu luas | Kompromi akun | Batasi direktori, blokir .env dan SSH |
+| Pemicu native host gagal | allowed_origins salah | Bridge tidak menyala | Jalankan installer dengan --extension-id yang benar |
 
 ## Tingkat perhatian
 
-| No | Temuan | Tingkat perhatian |
+| No | Temuan | Tingkat |
 |---|---|---|
 | 1 | Klaim 100% lokal tidak akurat | Tinggi |
-| 2 | `filesystem` dan `git` memiliki akses ke seluruh `$HOME` | Tinggi |
-| 3 | Tiga jalur akses ke repository yang sama berpotensi konflik | Sedang-tinggi |
-| 4 | Fungsi MCP tumpang tindih (GitDesktop vs git) | Sedang |
-| 5 | Bridge bergantung pada format respons dan UI | Sedang |
-| 6 | Klaim hemat token sekitar 50% adalah klaim pengembang | Rendah-sedang |
+| 2 | filesystem dan coding-mcp punya akses ke seluruh $HOME | Tinggi |
+| 3 | Dua jalur akses ke repo yang sama berpotensi konflik | Sedang |
+| 4 | Bridge bergantung pada format respons dan UI | Sedang |
+| 5 | allowed_origins salah membuat pemicu gagal | Sedang |
+| 6 | Klaim hemat token adalah klaim pengembang | Rendah-sedang |
 
 ## Prioritas penanganan
 
-1. Perbaiki istilah privasi di seluruh dokumentasi dan komunikasi.
-2. Pahami implikasi keamanan dari memberikan akses `$HOME` ke `filesystem` dan `git`; batasi jika tidak diperlukan.
-3. Tetapkan urutan kerja tulis yang konsisten antara `filesystem`, `git`, dan `gitdesktop`.
-4. Verifikasi perilaku bridge pada versi yang dipakai.
+1. Perbaiki istilah privasi di seluruh dokumentasi.
+2. Pahami implikasi akses $HOME; batasi jika tidak perlu.
+3. Tetapkan urutan kerja tulis yang konsisten antara coding-mcp dan filesystem.
+4. Verifikasi perilaku bridge dan native host pada versi yang dipakai.
 
 ## Catatan
 
-Register ini bersifat hidup. Perbarui saat komponen berubah versi, saat ditemukan risiko baru, atau saat mitigasi diterapkan. Arsitektur tiga jalur (GitDesktop, Git lintas repo, dan Filesystem) memberikan fleksibilitas maksimal, namun menuntut kehati-hatian ekstra dalam memberikan instruksi kepada AI agar tidak menyentuh file atau repositori yang salah.
+Register ini bersifat hidup. Perbarui saat komponen berubah, ditemukan risiko baru, atau mitigasi diterapkan. Arsitektur dua jalur (coding-mcp dan filesystem) lebih sederhana dari versi tiga jalur sebelumnya, tetapi tetap menuntut kehati-hatian dalam memberikan instruksi ke AI.
