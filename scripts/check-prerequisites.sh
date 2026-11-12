@@ -1,11 +1,8 @@
 #!/usr/bin/env bash
 # Memeriksa prasyarat Easy-Vibe.
 # Pemakaian: bash scripts/check-prerequisites.sh
-
 set -u
-
 exit_code=0
-
 check_command() {
   local name="$1"
   if command -v "$name" >/dev/null 2>&1; then
@@ -15,7 +12,6 @@ check_command() {
     exit_code=1
   fi
 }
-
 check_version() {
   local name="$1"
   local min_major="$2"
@@ -33,26 +29,19 @@ check_version() {
     printf '[OK]   %s versi %s\n' "$name" "$version"
   fi
 }
-
 echo '== Memeriksa perangkat dasar =='
 check_command git
 check_command python3
 check_command go
-
+check_command node
+check_command npm
+check_command coding-mcp
+check_command mcp-filesystem-server
 echo
 echo '== Memeriksa versi =='
-if command -v python3 >/dev/null 2>&1; then
-  check_version python3 3
-fi
-if command -v go >/dev/null 2>&1; then
-  check_version go 1
-fi
-
-echo
-echo '== Memeriksa server MCP =='
-check_command gitrs-mcp
-check_command mcp-filesystem-server
-
+if command -v python3 >/dev/null 2>&1; then check_version python3 3; fi
+if command -v go >/dev/null 2>&1; then check_version go 1; fi
+if command -v node >/dev/null 2>&1; then check_version node 18; fi
 echo
 echo '== Memeriksa berkas konfigurasi =='
 for f in config/bridge-servers.example.json config/mcp.json prompts/system-prompt-id.md; do
@@ -63,12 +52,10 @@ for f in config/bridge-servers.example.json config/mcp.json prompts/system-promp
     exit_code=1
   fi
 done
-
 echo
 if [ "$exit_code" -eq 0 ]; then
   echo 'Semua prasyarat wajib terpenuhi.'
 else
   echo 'Ada prasyarat yang belum terpenuhi. Perbaiki lalu jalankan ulang.'
 fi
-
 exit "$exit_code"
