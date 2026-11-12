@@ -109,12 +109,16 @@ end
 install_prasyarat; or exit 1
 install_filesystem; or exit 1
 install_coding_mcp; or exit 1
+if test -z "$CODING_BIN"; or test -z "$FS_BIN"
+    printf '[GAGAL] Path coding-mcp atau filesystem tidak terdeteksi\n' >&2
+    exit 1
+end
 printf '\n== Web MCP Bridge ==\n'
 install_bridge $BRIDGE_REPO $BRIDGE_DIR $VENV_DIR $GH_TOKEN; or exit 1
 printf '\n== Native host ==\n'
 install_native_host "$SCRIPT_DIR/scripts/native-host/easy-vibe-host" manifest_lines $EXT_ID; or exit 1
 printf '\n== Menulis servers.json ==\n'
-printf '{\n  "control_port": %d,\n  "launcher_port": %d,\n  "servers": [\n    {\n      "name": "coding-mcp",\n      "port": %d,\n      "command": ["coding-mcp", "serve", "--transport", "stdio"]\n    },\n    {\n      "name": "filesystem",\n      "port": %d,\n      "command": ["mcp-filesystem-server", "%s"]\n    }\n  ]\n}\n' $CONTROL_PORT $LAUNCHER_PORT $CODING_PORT $FS_PORT $HOME > "$BRIDGE_DIR/server/servers.json"
+printf '{\n  "control_port": %d,\n  "launcher_port": %d,\n  "servers": [\n    {\n      "name": "coding-mcp",\n      "port": %d,\n      "command": ["%s", "serve", "--transport", "stdio"]\n    },\n    {\n      "name": "filesystem",\n      "port": %d,\n      "command": ["%s", "%s"]\n    }\n  ]\n}\n' $CONTROL_PORT $LAUNCHER_PORT $CODING_PORT $CODING_BIN $FS_PORT $FS_BIN $HOME > "$BRIDGE_DIR/server/servers.json"
 set -l launcher "$INSTALL_DIR/start-easy-vibe.fish"
 printf '#!/usr/bin/env fish\ncd "%s"\nexec "%s/bin/python" server/mcp_ws_bridge.py --config server/servers.json\n' "$BRIDGE_DIR" "$VENV_DIR" > $launcher
 chmod +x $launcher
@@ -122,5 +126,6 @@ pkill -f mcp_ws_bridge.py 2>/dev/null
 sleep 1
 printf '%s\n' $manifest_lines > "$MANIFEST"
 printf '\n== Selesai ==\n'
-printf 'Bridge memakai coding-mcp (%d) dan filesystem (%d)\n' $CODING_PORT $FS_PORT
+printf 'coding-mcp: %s\n' $CODING_BIN
+printf 'filesystem: %s\n' $FS_BIN
 printf 'Pemicu: buka tab DeepSeek di Brave (bridge hidup), tutup tab (bridge mati).\n'
