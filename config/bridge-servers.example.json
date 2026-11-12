@@ -1,11 +1,1 @@
-{
-  "control_port": 8199,
-  "launcher_port": 8198,
-  "servers": [
-    {
-      "name": "gitdesktop",
-      "port": 8190,
-      "command": ["gitdesktop-mcp"]
-    }
-  ]
-}
+{"control_port":8199,"launcher_port":8198,"servers":[{"name":"coding-mcp","port":8190,"command":["/home/USER/.npm-global/bin/coding-mcp","serve","--transport","stdio"]},{"name":"filesystem","port":8192,"command":["/home/USER/go/bin/mcp-filesystem-server","/home/USER"]}]}
