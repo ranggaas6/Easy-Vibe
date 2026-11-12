@@ -36,14 +36,14 @@ Bridge hanya hidup selama tab `chat.deepseek.com` terbuka. Saat tab terakhir dit
 ## Perubahan dari versi lama
 
 - GitDesktop dihapus dari alur: tidak ada AppImage, symlink, atau ikon menu.
-- `gitdesktop` dan `multi-git-mcp` digantikan `coding-mcp`. Satu server, satu root, banyak repo.
-- Pemicu on/off berpindah ke tab DeepSeek via native messaging. Tanpa terminal, tanpa klik tambahan.
-- `servers.json` memakai path absolut hasil `command -v` agar tidak bergantung pada PATH.
-- Repo baru terdeteksi otomatis: rescan penuh saat bridge start, dan watcher selama bridge hidup.
+- `gitdesktop` dan `multi-git-mcp` digantikan `coding-mcp`.
+- Pemicu on/off berpindah ke tab DeepSeek via native messaging.
+- `servers.json` memakai path absolut hasil `command -v`.
+- Repo baru terdeteksi otomatis: rescan saat start, watcher inotify selama bridge hidup.
 
 ## Prasyarat
 
-Python 3.9+, Go 1.21+, Node.js + npm, Git, Brave 116+. Opsional: `inotify-tools` (watcher memakai fallback polling jika tidak ada).
+Python 3.9+, Go 1.21+, Node.js + npm, Git, Brave 116+. `inotify-tools` dipasang otomatis oleh installer.
 
 ## Instalasi CachyOS + fish
 
@@ -64,11 +64,11 @@ Opsi installer:
 | `--extension-id ID` | Wajib; dipakai di `allowed_origins` manifest native host |
 | `--github-token TOKEN` | Token untuk clone privat / hindari rate limit |
 
-Fitur pemicu tab DeepSeek hanya ada di fork `ranggaas6/web-mcp-bridge`. Upstream `AstraxOf/web-mcp-bridge` tidak menyediakan `nativeMessaging`, sehingga installer hanya memakai fork dan menolak opsi `--upstream`.
+Fitur pemicu tab DeepSeek hanya ada di fork `ranggaas6/web-mcp-bridge`. Upstream tidak menyediakan `nativeMessaging`, sehingga installer menolak `--upstream`.
 
 Langkah installer:
 
-1. Pasang paket dasar via pacman (termasuk nodejs, npm).
+1. Pasang paket dasar via pacman (termasuk nodejs, npm, inotify-tools).
 2. Pasang `mcp-filesystem-server`; pastikan `$GOPATH/bin` di `fish_user_paths`.
 3. Pasang global `@kieutrongthien/coding-mcp`; jalankan `coding-mcp init /home/<user>`.
 4. Clone `ranggaas6/web-mcp-bridge`; pasang dependensi Python di venv.
@@ -80,20 +80,18 @@ Langkah installer:
 Setelah instalasi:
 
 1. Reload extension di `brave://extensions` karena izin `nativeMessaging` baru aktif.
-2. Buka tab `chat.deepseek.com`; bridge menyala, `~/.easy-vibe/bridge.pid` dan `~/.easy-vibe/watcher.pid` muncul.
+2. Buka tab `chat.deepseek.com`; bridge menyala, `bridge.pid` dan `watcher.pid` muncul.
 3. Tutup tab DeepSeek; bridge dan watcher mati, kedua file PID hilang.
 
 Log pemicu dan watcher: `~/.easy-vibe/native-host.log`.
 
 ## Repo baru terdeteksi otomatis
 
-Tidak perlu memanggil tool apa pun secara manual:
-
-1. **Saat bridge start**: native host menjalankan `coding-mcp init <root>` sebelum menyalakan bridge. Semua repo yang di-clone saat bridge mati langsung terdaftar.
-2. **Selama bridge hidup**: `easy-vibe-watcher` memantau `.git` baru. Dengan `inotifywait` deteksi berlangsung dalam hitungan detik; tanpa `inotifywait` watcher memakai polling 30 detik.
+1. **Saat bridge start**: native host menjalankan `coding-mcp init <root>`. Repo yang di-clone saat bridge mati langsung terdaftar.
+2. **Selama bridge hidup**: `easy-vibe-watcher` memakai `inotifywait` untuk mendeteksi `.git` baru dan menjalankan `coding-mcp add <folder>`. Deteksi berlangsung dalam hitungan detik.
 3. **Saat bridge mati**: watcher dimatikan, tidak ada proses tersisa.
 
-Tool `refresh_project_index` dari `coding-mcp` tetap tersedia sebagai cadangan manual bila watcher tidak berjalan (misalnya di instalasi tanpa native host).
+Watcher hanya memakai inotify; tidak ada polling. Jika `inotifywait` tidak tersedia atau batas `max_user_watches` terlampaui, watcher berhenti dan mencatat alasannya di `native-host.log`. Panggil `refresh_project_index` dari DeepSeek sebagai cadangan manual.
 
 ## Alur kerja
 
@@ -113,7 +111,7 @@ Yang dibersihkan:
 
 - Manifest native host di semua lokasi Brave.
 - Skrip host dan watcher di `~/.easy-vibe/native-host/`.
-- `bridge.pid`, `watcher.pid`, dan `native-host.log`.
+- `bridge.pid`, `watcher.pid`, `native-host.log`.
 - Proses `easy-vibe-watcher` yang masih berjalan.
 - Paket npm global `@kieutrongthien/coding-mcp`.
 - Registry `coding-mcp` (`~/.coding-mcp`, `~/.config/coding-mcp`).
@@ -129,8 +127,8 @@ Opsi: `--dry-run`, `--with-tools`, `--with-gitdesktop`, `--full`, `--yes`.
 | Bridge tidak menyala saat tab DeepSeek dibuka | Cek manifest `com.ranggaas6.easy_vibe.json` di NativeMessagingHosts Brave; `allowed_origins` harus memuat ID extension |
 | Access forbidden (native host) | Jalankan ulang installer dengan `--extension-id` yang benar |
 | filesystem Connection error | Path absolut di `servers.json` salah |
-| Repo baru tidak terdeteksi | Cek `native-host.log`; pastikan `watcher.pid` ada. Sebagai cadangan panggil `refresh_project_index` |
-| Watcher tidak berjalan | Pasang `inotify-tools`; tanpa itu watcher memakai polling 30 detik |
+| Repo baru tidak terdeteksi | Cek `native-host.log`; pastikan `watcher.pid` ada dan `inotifywait` terpasang |
+| Watcher mati karena max_user_watches | Tingkatkan `fs.inotify.max_user_watches` lewat sysctl |
 | Installer menolak berjalan | Jalankan dari direktori hasil clone, `--extension-id` tidak kosong |
 
 ## Keamanan
