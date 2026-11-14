@@ -93,3 +93,71 @@ function gh_url_mask
     set -l url $argv[1]
     printf '%s' (string replace -r 'https://[^@]+@' 'https://***@' -- $url)
 end
+
+# Menyiapkan credential.helper store global dan menulis entri github.com
+# ke ~/.git-credentials supaya git push non-interaktif (dari coding_mcp
+# atau subprocess lain tanpa TTY) tetap berhasil.
+#
+# Argumen:
+#   $argv[1] token PAT (wajib)
+#   $argv[2] username GitHub (opsional, default: ranggaas6)
+function gh_setup_git_credential
+    set -l t $argv[1]
+    set -l user "ranggaas6"
+    if test (count $argv) -ge 2; and test -n "$argv[2]"
+        set user $argv[2]
+    end
+    if test -z "$t"
+        return 1
+    end
+    if not command -v git >/dev/null 2>&1
+        return 1
+    end
+
+    # Aktifkan helper store secara global (tanpa prompt TTY)
+    git config --global credential.helper store 2>/dev/null
+    git config --global credential.username $user 2>/dev/null
+
+    set -l cred_file "$HOME/.git-credentials"
+    set -l entry "https://$user:$t@github.com"
+
+    # Buang entri github.com lama, pertahankan host lain
+    if test -f "$cred_file"
+        set -l filtered
+        for line in (cat "$cred_file")
+            if not string match -q "*github.com*" -- "$line"
+                set -a filtered $line
+            end
+        end
+        if test (count $filtered) -gt 0
+            printf '%s\n' $filtered > "$cred_file"
+        else
+            : > "$cred_file"
+        end
+    end
+
+    printf '%s\n' $entry >> "$cred_file"
+    chmod 600 "$cred_file"
+    return 0
+end
+
+# Menghapus entri github.com dari ~/.git-credentials tanpa menyentuh host lain.
+function gh_cleanup_git_credential
+    set -l cred_file "$HOME/.git-credentials"
+    if not test -f "$cred_file"
+        return 0
+    end
+    set -l filtered
+    for line in (cat "$cred_file")
+        if not string match -q "*github.com*" -- "$line"
+            set -a filtered $line
+        end
+    end
+    if test (count $filtered) -eq 0
+        rm -f "$cred_file"
+    else
+        printf '%s\n' $filtered > "$cred_file"
+        chmod 600 "$cred_file"
+    end
+    return 0
+end

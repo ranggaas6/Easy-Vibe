@@ -27,6 +27,10 @@ for a in $argv
   end
 end
 set -l DIR "$HOME/.easy-vibe"
+set -l SCRIPT_DIR (realpath (dirname (status --current-filename)))
+if test -f "$SCRIPT_DIR/scripts/github-auth.fish"
+  source "$SCRIPT_DIR/scripts/github-auth.fish"
+end
 set -l MANIFEST "$DIR/manifest.txt"
 set -l GOBIN (go env GOPATH 2>/dev/null)/bin
 set -g NH_NAME com.ranggaas6.easy_vibe
@@ -66,6 +70,15 @@ if test -f "$MANIFEST"
         set -a CODING_ROOTS $parts[2]
       case pacman-pkg
         set -a PKGS_TO_REMOVE $parts[2]
+      case git-credentials-file
+        if functions -q gh_cleanup_git_credential
+          if test $DRY -eq 1
+            say "akan membersihkan entri github.com di: $parts[2]"
+          else
+            gh_cleanup_git_credential
+            say "entri github.com dibersihkan dari: $parts[2]"
+          end
+        end
     end
   end
 else
@@ -107,6 +120,15 @@ say "== Registry coding-mcp =="
 for r in $CODING_ROOTS; say "root proyek: $r (tidak dihapus)"; end
 rm_path "$HOME/.coding-mcp"
 rm_path "$HOME/.config/coding-mcp"
+say "== Kredensial git =="
+if functions -q gh_cleanup_git_credential
+  if test $DRY -eq 1
+    say "akan membersihkan entri github.com di ~/.git-credentials"
+  else
+    gh_cleanup_git_credential
+    say "entri github.com dibersihkan dari ~/.git-credentials"
+  end
+end
 say "== Direktori instalasi =="
 rm_path "$DIR"
 say "== fish PATH =="

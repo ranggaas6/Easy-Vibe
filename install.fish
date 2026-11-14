@@ -90,12 +90,19 @@ end
 mkdir -p "$INSTALL_DIR"
 if test -n "$GH_TOKEN"
   gh_token_save $GH_TOKEN
+  # Siapkan git credential store agar push non-interaktif (coding_mcp) berhasil
+  if gh_setup_git_credential $GH_TOKEN
+    printf '[OK] git credential.helper=store + ~/.git-credentials disiapkan\n'
+  else
+    printf '[PERINGATAN] Gagal menyiapkan credential.helper store\n'
+  end
 end
 set -g manifest_lines "installed_at "(date -Iseconds)
 set -g manifest_lines $manifest_lines "bridge_source $BRIDGE_REPO"
 set -g manifest_lines $manifest_lines "extension-id $EXT_ID"
 if test -n "$GH_TOKEN"
   set -g manifest_lines $manifest_lines "github-token-file $TOKEN_FILE"
+  set -g manifest_lines $manifest_lines "git-credentials-file $HOME/.git-credentials"
 end
 install_prasyarat; or exit 1
 install_filesystem; or exit 1
