@@ -4,6 +4,7 @@ source "$SCRIPT_DIR/scripts/github-auth.fish"
 source "$SCRIPT_DIR/scripts/install-base.fish"
 source "$SCRIPT_DIR/scripts/install-bridge.fish"
 source "$SCRIPT_DIR/scripts/install-native-host.fish"
+source "$SCRIPT_DIR/scripts/install-audit.fish"
 set -l INSTALL_DIR "$HOME/.easy-vibe"
 set -l BRIDGE_DIR "$INSTALL_DIR/web-mcp-bridge"
 set -l VENV_DIR "$INSTALL_DIR/venv"
@@ -76,7 +77,7 @@ set -l LAUNCHER_PORT 8198
 set -l CODING_PORT 8190
 set -l GITHUB_PORT 8191
 set -l FS_PORT 8192
-set -l ALLOWED_CMDS "cargo,rustc,git"
+set -l ALLOWED_CMDS "cargo,rustc,git,pgrep,node,npm"
 if not command -v pacman >/dev/null 2>&1; printf '[GAGAL] pacman tidak ditemukan\n' >&2; exit 1; end
 if test $CLEAN -eq 1
   if test -f "$SCRIPT_DIR/uninstall.fish"
@@ -123,17 +124,19 @@ if test -d "$BRIDGE_DIR"
 end
 printf '\n== Native host ==\n'
 install_native_host "$SCRIPT_DIR/scripts/native-host/easy-vibe-host" $EXT_ID "$SCRIPT_DIR/scripts/native-host/easy-vibe-watcher"; or exit 1
+install_audit "$INSTALL_DIR" "$SCRIPT_DIR"
 printf '\n== Menulis servers.json ==\n'
 set -l gh_env ""
 if test -n "$GH_TOKEN"
   set gh_env "\"env\": { \"GITHUB_TOKEN\": \"$GH_TOKEN\" }, "
 end
-printf '{\n  "control_port": %d,\n  "launcher_port": %d,\n  "servers": [\n    { "name": "coding-mcp", "port": %d, "command": ["%s", "serve", "--transport", "stdio"], "env": { "ALLOWED_COMMANDS": "%s" } },\n    { %s"name": "github", "port": %d, "command": ["%s"] },\n    { "name": "filesystem", "port": %d, "command": ["%s", "%s"] }\n  ]\n}\n' $CONTROL_PORT $LAUNCHER_PORT $CODING_PORT $CODING_BIN "$ALLOWED_CMDS" "$gh_env" $GITHUB_PORT $GITHUB_BIN $FS_PORT $FS_BIN $HOME > "$BRIDGE_DIR/server/servers.json"
+printf '{\n  "control_port": %d,\n  "launcher_port": %d,\n  "servers": [\n    { "name": "coding-mcp", "port": %d, "command": ["%s", "serve", "--transport", "stdio"], "env": { "ALLOWED_COMMANDS": "%s" } },\n    { %s"name": "github", "port": %d, "command": ["%s"] },\n    { "name": "filesystem", "port": %d, "command": ["%s", "%s"] }\n  ]\n}\n' $CONTROL_PORT $LAUNCHER_PORT $CODING_PORT (audit_wrap coding-mcp $CODING_BIN) "$ALLOWED_CMDS" "$gh_env" $GITHUB_PORT (audit_wrap github $GITHUB_BIN) $FS_PORT $FS_BIN $HOME > "$BRIDGE_DIR/server/servers.json"
 chmod 600 "$BRIDGE_DIR/server/servers.json"
 set -l launcher "$INSTALL_DIR/start-easy-vibe.fish"
-printf '#!/usr/bin/env fish\ncd "%s"\nexec "%s/bin/python" server/mcp_ws_bridge.py --config server/servers.json\n' "$BRIDGE_DIR" "$VENV_DIR" > $launcher
+printf '#!/usr/bin/env fish\npkill -f audit-brief.py 2>/dev/null\nif test -f "%s/audit-brief.py"\n  setsid python3 "%s/audit-brief.py" >/dev/null 2>&1 &\nend\ncd "%s"\nexec "%s/bin/python" server/mcp_ws_bridge.py --config server/servers.json\n' "$INSTALL_DIR" "$INSTALL_DIR" "$BRIDGE_DIR" "$VENV_DIR" > $launcher
 chmod +x $launcher
 pkill -f mcp_ws_bridge.py 2>/dev/null
+pkill -f audit-brief.py 2>/dev/null
 sleep 1
 printf '%s\n' $manifest_lines > "$MANIFEST"
 printf '\n== Selesai ==\n'

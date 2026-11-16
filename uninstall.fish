@@ -107,7 +107,7 @@ for f in (ls "$HOME/.config/systemd/user" 2>/dev/null)
   end
 end
 say "== Proses berjalan =="
-for n in easy-vibe-watcher mcp_ws_bridge.py coding-mcp github-mcp-server-kosta github-mcp-server gitdesktop-mcp gitrs-mcp mcp-filesystem-server easy-vibe-host
+for n in easy-vibe-watcher audit-brief.py mcp-audit mcp_ws_bridge.py coding-mcp github-mcp-server-kosta github-mcp-server gitdesktop-mcp gitrs-mcp mcp-filesystem-server easy-vibe-host
   if pgrep -f "$n" >/dev/null 2>&1
     if test $DRY -eq 0
       pkill -f "$n" 2>/dev/null; say "dihentikan: $n"
