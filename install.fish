@@ -76,6 +76,7 @@ set -l LAUNCHER_PORT 8198
 set -l CODING_PORT 8190
 set -l GITHUB_PORT 8191
 set -l FS_PORT 8192
+set -l ALLOWED_CMDS "cargo,rustc,git"
 if not command -v pacman >/dev/null 2>&1; printf '[GAGAL] pacman tidak ditemukan\n' >&2; exit 1; end
 if test $CLEAN -eq 1
   if test -f "$SCRIPT_DIR/uninstall.fish"
@@ -127,7 +128,7 @@ set -l gh_env ""
 if test -n "$GH_TOKEN"
   set gh_env "\"env\": { \"GITHUB_TOKEN\": \"$GH_TOKEN\" }, "
 end
-printf '{\n  "control_port": %d,\n  "launcher_port": %d,\n  "servers": [\n    { "name": "coding-mcp", "port": %d, "command": ["%s", "serve", "--transport", "stdio"] },\n    { %s"name": "github", "port": %d, "command": ["%s"] },\n    { "name": "filesystem", "port": %d, "command": ["%s", "%s"] }\n  ]\n}\n' $CONTROL_PORT $LAUNCHER_PORT $CODING_PORT $CODING_BIN "$gh_env" $GITHUB_PORT $GITHUB_BIN $FS_PORT $FS_BIN $HOME > "$BRIDGE_DIR/server/servers.json"
+printf '{\n  "control_port": %d,\n  "launcher_port": %d,\n  "servers": [\n    { "name": "coding-mcp", "port": %d, "command": ["%s", "serve", "--transport", "stdio"], "env": { "ALLOWED_COMMANDS": "%s" } },\n    { %s"name": "github", "port": %d, "command": ["%s"] },\n    { "name": "filesystem", "port": %d, "command": ["%s", "%s"] }\n  ]\n}\n' $CONTROL_PORT $LAUNCHER_PORT $CODING_PORT $CODING_BIN "$ALLOWED_CMDS" "$gh_env" $GITHUB_PORT $GITHUB_BIN $FS_PORT $FS_BIN $HOME > "$BRIDGE_DIR/server/servers.json"
 chmod 600 "$BRIDGE_DIR/server/servers.json"
 set -l launcher "$INSTALL_DIR/start-easy-vibe.fish"
 printf '#!/usr/bin/env fish\ncd "%s"\nexec "%s/bin/python" server/mcp_ws_bridge.py --config server/servers.json\n' "$BRIDGE_DIR" "$VENV_DIR" > $launcher
