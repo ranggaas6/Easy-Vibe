@@ -1,26 +1,25 @@
 {
   "mcpServers": {
-    "gitdesktop": {
-      "command": "gitdesktop-mcp",
-      "description": "Hub MCP. GitDesktop mengekspos tool Git/forge sendiri sekaligus meneruskan tool dari server anak yang terdaftar di dalam GitDesktop."
-    }
-  },
-  "gitdesktopChildServers": {
-    "gitrs": {
-      "command": "gitrs-mcp",
-      "args": ["--repo", "C:/Users/CHANGE_ME/projects/Easy-Vibe"],
-      "description": "Didaftarkan di Settings → MCP GitDesktop, bukan di servers.json bridge."
+    "coding-mcp": {
+      "command": "/home/USER/.npm-global/bin/coding-mcp",
+      "args": ["serve", "--transport", "stdio"],
+      "description": "Berkas dan Git lintas repo via project_id. Alur default (Opsi B)."
+    },
+    "github": {
+      "command": "/home/USER/.npm-global/bin/github-mcp-server-kosta",
+      "env": { "GITHUB_TOKEN": "GANTI_DENGAN_TOKEN" },
+      "description": "GitHub API: PR, issue, release, delete_branch. Token butuh scope repo."
     },
     "filesystem": {
-      "command": "mcp-filesystem-server",
-      "args": ["C:/Users/CHANGE_ME/projects/Easy-Vibe"],
-      "description": "Didaftarkan di Settings → MCP GitDesktop, bukan di servers.json bridge."
+      "command": "/home/USER/go/bin/mcp-filesystem-server",
+      "args": ["/home/USER"],
+      "description": "Berkas independen. Hanya baca dan bantu; jangan dipakai menghapus folder."
     }
   },
   "notes": [
-    "Arsitektur: DeepSeek -> Web MCP Bridge -> gitdesktop-mcp (hub) -> gitrs-mcp + mcp-filesystem-server.",
-    "Bridge hanya melihat satu server: gitdesktop. Server anak dikelola oleh GitDesktop.",
-    "Gunakan garis miring / pada semua path, termasuk di Windows.",
+    "Arsitektur: DeepSeek -> Web MCP Bridge -> coding-mcp + github + filesystem.",
+    "Berkas ini hanya contoh referensi. Bridge membaca server/servers.json yang ditulis install.fish (lihat config/bridge-servers.example.json).",
+    "Ganti /home/USER dengan path absolut Anda. Jangan commit token.",
     "Aktifkan mode persetujuan untuk semua operasi tulis."
   ]
 }

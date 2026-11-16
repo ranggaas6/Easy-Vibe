@@ -10,7 +10,7 @@ TARGET_CONFIG="$BRIDGE_DIR/server/servers.json"
 
 if [ ! -d "$BRIDGE_DIR" ]; then
   echo "Direktori Web MCP Bridge tidak ditemukan: $BRIDGE_DIR" >&2
-  echo "Clone dulu: git clone https://github.com/AstraxOf/web-mcp-bridge" >&2
+  echo "Clone dulu: git clone https://github.com/ranggaas6/web-mcp-bridge" >&2
   exit 1
 fi
 

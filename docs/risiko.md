@@ -14,6 +14,12 @@ Daftar risiko arsitektur vibe coding lokal Easy-Vibe beserta mitigasinya.
 | Lampiran panjang melebihi konteks | Bridge mengirim teks utuh | Panggilan gagal | Baca bertahap, batasi ukuran |
 | Kredensial terbaca tool | Akses filesystem terlalu luas | Kompromi akun | Batasi direktori, blokir .env dan SSH |
 | Pemicu native host gagal | allowed_origins salah | Bridge tidak menyala | Jalankan installer dengan --extension-id yang benar |
+| PAT plaintext di disk | `~/.git-credentials`, `~/.easy-vibe/github-token`, `servers.json` | Kompromi akun GitHub bila disk atau tool membacanya | chmod 600, scope minimal, fine-grained PAT, jangan minta AI membaca berkas itu, rotasi token berkala |
+| Operasi tulis remote lewat server github | Token scope `repo` | PR, merge, atau hapus branch yang tidak diinginkan | Persetujuan manual per panggilan, batasi PAT ke repo yang perlu |
+| Push langsung ke main | `git_push` non-interaktif | Perubahan terdorong tanpa tinjauan | Review diff sebelum commit, setujui push secara manual, uji di branch (`set_upstream`) |
+| Penghapusan folder salah sasaran | `coding_mcp.delete_file` dengan `path: "."` | Repo asli terhapus | Verifikasi `get_project`/`absolute_path`, hanya hapus salinan buatan sesi, daftarkan root agar salinan tidak perlu |
+| Log audit memuat data sensitif | `~/.easy-vibe/audit/*.jsonl`, `brief.txt` | Kebocoran argumen panggilan | Direktori chmod 700, jangan dibagikan, rotasi otomatis 5 MB |
+| Kegagalan penghapusan via filesystem | `filesystem.delete_file` (dilaporkan, penyebab belum diketahui) | Folder sisa | Gunakan `coding_mcp.delete_file`, konfirmasi dengan `get_file_info` |
 
 ## Tingkat perhatian
 
@@ -35,4 +41,4 @@ Daftar risiko arsitektur vibe coding lokal Easy-Vibe beserta mitigasinya.
 
 ## Catatan
 
-Register ini bersifat hidup. Perbarui saat komponen berubah, ditemukan risiko baru, atau mitigasi diterapkan. Arsitektur dua jalur (coding-mcp dan filesystem) lebih sederhana dari versi tiga jalur sebelumnya, tetapi tetap menuntut kehati-hatian dalam memberikan instruksi ke AI.
+Register ini bersifat hidup. Perbarui saat komponen berubah, ditemukan risiko baru, atau mitigasi diterapkan. Arsitektur saat ini memakai tiga server (coding-mcp, github, filesystem) dengan Opsi B sebagai alur default: berkas dan Git lokal lewat coding-mcp, remote lewat github. Tetap perlu kehati-hatian dalam memberikan instruksi ke AI.

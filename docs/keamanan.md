@@ -34,6 +34,14 @@ Checklist dan model ancaman untuk arsitektur vibe coding lokal Easy-Vibe.
 - Batasi instruksi ke AI agar tidak menyentuh repositori yang tidak relevan.
 - refresh_project_index menambah repo baru ke daftar; verifikasi hasilnya.
 
+## Server github dan kredensial
+
+- Token PAT (scope `repo`) tersimpan di `~/.easy-vibe/github-token`, di `servers.json` (`env.GITHUB_TOKEN`), dan sebagai entri plaintext di `~/.git-credentials` (untuk `credential.helper store`). Ketiganya chmod 600.
+- Dengan token ber-scope `repo`, tool `github` dapat menulis, membuat PR, menggabungkan PR, dan menghapus branch. Setujui operasi tersebut secara manual; gunakan fine-grained PAT yang dibatasi ke repo yang diperlukan bila memungkinkan.
+- `coding-mcp` dan `filesystem` dikonfigurasi ke `$HOME`, sehingga berkas token di atas secara teknis dapat dibaca lewat tool. Jangan minta AI membukanya, dan setujui pembacaan path di `~/.easy-vibe` dan `~/.git-credentials` hanya bila perlu.
+- Log `~/.easy-vibe/audit/*.jsonl` memuat argumen panggilan tool (potongan kode, path, pesan commit). Perlakukan sebagai data sensitif.
+- `git_push` tidak punya force push; merge dan rebase tidak tersedia di `coding-mcp`.
+
 ## Proses kerja
 
 - Commit atau backup sebelum pekerjaan besar.
@@ -60,5 +68,5 @@ Proses MCP berjalan dengan hak akses OS yang meluncurkannya. Membatasi direktori
 1. Hentikan bridge dan semua server MCP (tutup tab DeepSeek, atau `pkill -f mcp_ws_bridge.py`).
 2. Periksa git status dan git log di repo utama dan repo lain di $HOME.
 3. Pulihkan dari commit terakhir yang diketahui baik.
-4. Rotasi kredensial yang mungkin terbaca.
+4. Rotasi kredensial yang mungkin terbaca, termasuk PAT GitHub (cabut di pengaturan GitHub, lalu jalankan ulang installer dengan token baru), dan periksa `~/.git-credentials`.
 5. Tinjau riwayat chat dan hasil tool yang dikirim ke cloud.

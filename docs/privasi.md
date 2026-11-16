@@ -29,7 +29,7 @@ Ketika DeepSeek membaca kode melalui `filesystem`, atau memeriksa riwayat Git me
 ## Yang memang benar
 
 - Repository tidak pernah diunggah sebagai ZIP.
-- Tidak menggunakan GitHub API untuk operasi harian.
+- Operasi harian (berkas dan Git) berjalan lokal lewat `coding-mcp`. Server `github` hanya dipakai untuk hal yang ada di remote (PR, issue, release, hapus branch, verifikasi) dan mengirim permintaan ke GitHub dengan token Anda.
 - Tidak menggunakan API berbayar.
 - Git dan branch tetap berada di SSD internal.
 
@@ -39,7 +39,9 @@ Ketika DeepSeek membaca kode melalui `filesystem`, atau memeriksa riwayat Git me
 - Diff, log, dan status Git (dibaca via `coding-mcp`)
 - Nama file dan struktur direktori
 - Konfigurasi
-- Hasil tool yang diberikan kepada DeepSeek
+- Hasil tool yang diberikan kepada DeepSeek, termasuk hasil server `github` (isi repo, PR, issue)
+
+Catatan lokal (tidak dikirim ke DeepSeek kecuali dibaca lewat tool): log panggilan `~/.easy-vibe/audit/*.jsonl` dan `~/.easy-vibe/brief.txt` berisi argumen panggilan tool dan status Git proyek. `~/.easy-vibe/github-token` dan `~/.git-credentials` menyimpan PAT plaintext (chmod 600). Jangan biarkan AI membaca berkas-berkas ini.
 
 ## Kebijakan privasi DeepSeek
 
