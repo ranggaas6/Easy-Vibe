@@ -110,6 +110,16 @@ function install_coding_mcp
         printf '[GAGAL] coding-mcp init gagal\n' >&2
         return 1
     end
+    for extra_root in "$HOME/.cargo" "$HOME/.easy-vibe" "$HOME/.easy-vibe/web-mcp-bridge"
+        if test -d $extra_root
+            coding-mcp init $extra_root
+            and set -a manifest_lines "coding-mcp-root $extra_root"
+            and ib_ok "coding-mcp root tambahan: $extra_root"
+            or ib_warn "coding-mcp init $extra_root gagal (dilanjutkan)"
+        else
+            ib_warn "Direktori $extra_root belum ada, dilewati"
+        end
+    end
 end
 function install_github_mcp
     ib_langkah "Memasang github-mcp-server-kosta"

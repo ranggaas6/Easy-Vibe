@@ -117,7 +117,32 @@ for n in easy-vibe-watcher mcp_ws_bridge.py coding-mcp github-mcp-server-kosta g
   end
 end
 say "== Registry coding-mcp =="
-for r in $CODING_ROOTS; say "root proyek: $r (tidak dihapus)"; end
+set -l extra_roots "$HOME/.cargo" "$HOME/.easy-vibe" "$HOME/.easy-vibe/web-mcp-bridge"
+set -l reg "$HOME/.coding-mcp/registry.json"
+if test -f "$reg"
+  for r in $extra_roots
+    if contains $r $CODING_ROOTS
+      if test $DRY -eq 1
+        say "akan dihapus dari roots coding-mcp: $r"
+      else
+        python3 -c "
+import json, sys
+path, root = sys.argv[1], sys.argv[2]
+with open(path) as f: d = json.load(f)
+d['roots'] = [x for x in d.get('roots', []) if x != root]
+d['projects'] = [p for p in d.get('projects', []) if p.get('absolute_path','') != root and not p.get('absolute_path','').startswith(root + '/')]
+with open(path, 'w') as f: json.dump(d, f, indent=2)
+" "$reg" "$r"
+        say "dihapus dari roots coding-mcp: $r"
+      end
+    end
+  end
+end
+for r in $CODING_ROOTS
+  if not contains $r $extra_roots
+    say "root proyek: $r (tidak dihapus)"
+  end
+end
 rm_path "$HOME/.coding-mcp"
 rm_path "$HOME/.config/coding-mcp"
 say "== Kredensial git =="
