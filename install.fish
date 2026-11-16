@@ -114,6 +114,12 @@ if test -z "$CODING_BIN"; or test -z "$FS_BIN"; or test -z "$GITHUB_BIN"
 end
 printf '\n== Web MCP Bridge ==\n'
 install_bridge $BRIDGE_REPO $BRIDGE_DIR $VENV_DIR $GH_TOKEN; or exit 1
+if test -d "$BRIDGE_DIR"
+    coding-mcp init "$BRIDGE_DIR"
+    and set -a manifest_lines "coding-mcp-root $BRIDGE_DIR"
+    and printf '[OK]   coding-mcp root tambahan: %s\n' "$BRIDGE_DIR"
+    or printf '[PERINGATAN] coding-mcp init %s gagal (dilanjutkan)\n' "$BRIDGE_DIR"
+end
 printf '\n== Native host ==\n'
 install_native_host "$SCRIPT_DIR/scripts/native-host/easy-vibe-host" $EXT_ID "$SCRIPT_DIR/scripts/native-host/easy-vibe-watcher"; or exit 1
 printf '\n== Menulis servers.json ==\n'

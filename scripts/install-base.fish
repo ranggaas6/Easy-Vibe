@@ -110,7 +110,7 @@ function install_coding_mcp
         printf '[GAGAL] coding-mcp init gagal\n' >&2
         return 1
     end
-    for extra_root in "$HOME/.cargo" "$HOME/.easy-vibe" "$HOME/.easy-vibe/web-mcp-bridge"
+    for extra_root in "$HOME/.cargo" "$HOME/.easy-vibe"
         if test -d $extra_root
             coding-mcp init $extra_root
             and set -a manifest_lines "coding-mcp-root $extra_root"
