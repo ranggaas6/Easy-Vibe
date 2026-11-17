@@ -53,7 +53,7 @@ Contoh `servers.json` yang ditulis installer (tanpa mcp-audit):
   "control_port": 8199,
   "launcher_port": 8198,
   "servers": [
-    { "name": "coding-mcp", "port": 8190, "command": ["/home/user/.npm-global/bin/coding-mcp", "serve", "--transport", "stdio"], "env": { "ALLOWED_COMMANDS": "cargo,rustc,git,pgrep,node,npm" } },
+    { "name": "coding-mcp", "port": 8190, "command": ["/home/user/.npm-global/bin/coding-mcp", "serve", "--transport", "stdio"], "env": { "ALLOWED_COMMANDS": "cargo,rustc,git,pgrep,node,npm,pacman,busctl,fish" } },
     { "env": { "GITHUB_TOKEN": "..." }, "name": "github", "port": 8191, "command": ["/home/user/.npm-global/bin/github-mcp-server-kosta"] },
     { "name": "filesystem", "port": 8192, "command": ["/home/user/go/bin/mcp-filesystem-server", "/home/user"] }
   ]

@@ -89,7 +89,7 @@ set -l LAUNCHER_PORT 8198
 set -l CODING_PORT 8190
 set -l GITHUB_PORT 8191
 set -l FS_PORT 8192
-set -l ALLOWED_CMDS "cargo,rustc,git,pgrep,node,npm"
+set -l ALLOWED_CMDS "cargo,rustc,git,pgrep,node,npm,pacman,busctl,fish"
 if not command -v pacman >/dev/null 2>&1; printf '[GAGAL] pacman tidak ditemukan\n' >&2; exit 1; end
 if test $CLEAN -eq 1
   if test -f "$SCRIPT_DIR/uninstall.fish"
