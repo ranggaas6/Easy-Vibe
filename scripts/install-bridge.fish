@@ -12,16 +12,17 @@ function install_bridge -a bridge_repo bridge_dir venv_dir token
             git -C "$bridge_dir" remote set-url origin "$clone_url"
         end
         git -C "$bridge_dir" pull --ff-only
+        # Jangan biarkan token tertinggal di URL remote (.git/config)
+        git -C "$bridge_dir" remote set-url origin "$bridge_repo"
     else
         git clone "$clone_url" "$bridge_dir"
         or return 1
         git -C "$bridge_dir" remote set-url origin "$bridge_repo"
     end
 
-    # Lapisan kedua: pastikan repo ini bisa push non-interaktif,
-    # bahkan jika credential.helper global belum disiapkan.
+    # Repo ini memakai helper global (libsecret/keyring). Hapus sisa helper store (plaintext) dari instalasi lama.
     if test -d "$bridge_dir/.git"
-        git -C "$bridge_dir" config credential.helper store 2>/dev/null
+        git -C "$bridge_dir" config --local --fixed-value --unset-all credential.helper store 2>/dev/null
         if test -n "$token"
             git -C "$bridge_dir" config credential.username ranggaas6 2>/dev/null
         end

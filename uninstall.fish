@@ -28,6 +28,9 @@ for a in $argv
 end
 set -l DIR "$HOME/.easy-vibe"
 set -l SCRIPT_DIR (realpath (dirname (status --current-filename)))
+if test -f "$SCRIPT_DIR/scripts/token-vault.fish"
+  source "$SCRIPT_DIR/scripts/token-vault.fish"
+end
 if test -f "$SCRIPT_DIR/scripts/github-auth.fish"
   source "$SCRIPT_DIR/scripts/github-auth.fish"
 end
@@ -70,6 +73,15 @@ if test -f "$MANIFEST"
         set -a CODING_ROOTS $parts[2]
       case pacman-pkg
         set -a PKGS_TO_REMOVE $parts[2]
+      case keyring-item
+        if functions -q tv_clear
+          if test $DRY -eq 1
+            say "akan menghapus item keyring: $parts[2]"
+          else
+            tv_clear
+            say "item keyring dihapus: $parts[2]"
+          end
+        end
       case git-credentials-file
         if functions -q gh_cleanup_git_credential
           if test $DRY -eq 1
@@ -145,7 +157,23 @@ for r in $CODING_ROOTS
 end
 rm_path "$HOME/.coding-mcp"
 rm_path "$HOME/.config/coding-mcp"
+say "== Keyring Easy-Vibe =="
+if functions -q tv_clear
+  if test $DRY -eq 1
+    say "akan menghapus item keyring easy-vibe/github"
+  else
+    tv_clear
+    say "item keyring easy-vibe/github dihapus"
+  end
+end
 say "== Kredensial git =="
+if test $DRY -eq 0
+  set -l cu (git config --global --get credential.username 2>/dev/null)
+  if test "$cu" = ranggaas6
+    git config --global --unset credential.username 2>/dev/null
+    say "credential.username git (ranggaas6) dihapus"
+  end
+end
 if functions -q gh_cleanup_git_credential
   if test $DRY -eq 1
     say "akan membersihkan entri github.com di ~/.git-credentials"

@@ -35,7 +35,7 @@ function setup_npm_prefix
 end
 function install_prasyarat
     ib_langkah "Memasang prasyarat dasar"
-    set -l paket git python python-pip go curl base-devel nodejs npm inotify-tools
+    set -l paket git python python-pip go curl base-devel nodejs npm inotify-tools libsecret
     set -l newly_installed
     for p in $paket
         if not pacman -Qi $p >/dev/null 2>&1
@@ -55,6 +55,9 @@ function install_prasyarat
     if not ib_ada inotifywait
         printf '[GAGAL] inotifywait tidak ditemukan setelah instalasi\n' >&2
         return 1
+    end
+    if not ib_ada secret-tool
+        ib_warn "secret-tool tidak ditemukan: token GitHub tidak bisa disimpan di keyring"
     end
     ib_ok "Paket dasar terpasang (inotifywait: "(command -v inotifywait)")"
 end
