@@ -17,7 +17,7 @@ DeepSeek (cloud) -> Brave + Bridge (fork) -> Native host -> start-easy-vibe.fish
 3. Opsi B sebagai default: perubahan berkas dan Git lewat `coding-mcp` di disk lokal; `github` hanya untuk hal yang ada di remote. Lihat [opsi-b.md](opsi-b.md).
 4. Bridge hidup hanya selama tab DeepSeek terbuka; native host memegang on/off.
 5. Manusia memegang commit dan operasi destruktif.
-6. `servers.json` memakai path absolut; file disimpan chmod 600 karena entri `github` memuat token.
+6. `servers.json` memakai path absolut; file disimpan chmod 600 (token GitHub tidak ada di berkas ini, diambil dari keyring lewat wrapper).
 
 ## Pemicu on/off
 
@@ -54,7 +54,7 @@ Contoh `servers.json` yang ditulis installer (tanpa mcp-audit):
   "launcher_port": 8198,
   "servers": [
     { "name": "coding-mcp", "port": 8190, "command": ["/home/user/.npm-global/bin/coding-mcp", "serve", "--transport", "stdio"], "env": { "ALLOWED_COMMANDS": "cargo,rustc,git,pgrep,node,npm,pacman,busctl,fish" } },
-    { "env": { "GITHUB_TOKEN": "..." }, "name": "github", "port": 8191, "command": ["/home/user/.npm-global/bin/github-mcp-server-kosta"] },
+    { "name": "github", "port": 8191, "command": ["/home/user/.easy-vibe/bin/github-mcp-wrapper"] },
     { "name": "filesystem", "port": 8192, "command": ["/home/user/go/bin/mcp-filesystem-server", "/home/user"] }
   ]
 }
@@ -66,8 +66,8 @@ Jika `mcp-audit` terpasang, `command` setiap server menjadi `<mcp-audit> run --l
 
 | Lokasi | Dipakai oleh | Mekanisme |
 |---|---|---|
-| `~/.easy-vibe/github-token` (chmod 600) | Server `github` | Diteruskan ke `servers.json` sebagai `env.GITHUB_TOKEN` |
-| `~/.git-credentials` (chmod 600) | Git CLI (termasuk `git_push` dari coding-mcp) | `credential.helper store` global, entri `github.com` |
+| Keyring sistem (service `easy-vibe`, account `github`) | Server `github` | Wrapper `~/.easy-vibe/bin/github-mcp-wrapper` mengambil token dari keyring saat start; `servers.json` tanpa token |
+| Keyring sistem (lewat libsecret) | Git CLI (termasuk `git_push` dari coding-mcp) | `credential.helper` global `git-credential-libsecret`, kredensial `github.com` |
 
 Token harus punya scope `repo` untuk operasi tulis seperti push, `delete_branch`, dan pembuatan PR. Clone awal bridge memakai token di URL satu kali; setelahnya remote dikembalikan ke HTTPS polos.
 
@@ -77,4 +77,4 @@ Token harus punya scope `repo` untuk operasi tulis seperti push, `delete_branch`
 - Batas direktori tool bukan sandbox OS mutlak.
 - `coding-mcp` memindai root saat init dan hanya mendeteksi proyek satu level di bawah root; repo baru perlu `refresh_project_index` atau watcher.
 - Server `github` memerlukan koneksi internet; `coding-mcp` dan `filesystem` tetap lokal.
-- PAT tersimpan plaintext di `~/.git-credentials` dan `~/.easy-vibe/github-token`.
+- PAT tersimpan di keyring sistem (Secret Service) dan membutuhkan sesi dengan keyring aktif; tidak ada berkas token plaintext di `$HOME`.

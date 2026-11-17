@@ -2,14 +2,14 @@
 
 Vibe coding lokal: DeepSeek Web Chat memakai tool MCP lokal lewat Web MCP Bridge. AI berjalan di cloud; yang lokal adalah penyimpanan, Git, dan eksekusi tool.
 
-Dokumen ini mencerminkan kondisi repo setelah penambahan server `github`, pemicu native messaging, perekam panggilan (`mcp-audit` + `audit-brief`), `credential.helper store` untuk push non-interaktif, dan alur kerja **Opsi B**.
+Dokumen ini mencerminkan kondisi repo setelah penambahan server `github`, pemicu native messaging, perekam panggilan (`mcp-audit` + `audit-brief`), penyimpanan token GitHub di keyring (libsecret) untuk push non-interaktif, dan alur kerja **Opsi B**.
 
 ## Ringkasan
 
 - AI (DeepSeek Web) memanggil tool lewat blok JSON `mcp_call`; ekstensi Web MCP Bridge menjalankannya di komputer Anda.
 - Tiga server MCP lokal: `coding-mcp` (berkas + Git), `github` (GitHub API), `filesystem` (berkas independen).
 - **Opsi B** adalah alur kerja default: semua perubahan berkas dan Git dikerjakan di disk lokal lewat `coding-mcp`; server `github` hanya untuk hal yang ada di remote (PR, issue, release, hapus branch, verifikasi). Lihat [docs/opsi-b.md](docs/opsi-b.md).
-- Push dari `coding-mcp` berjalan tanpa prompt kredensial karena installer menyiapkan `credential.helper store`.
+- Push dari `coding-mcp` berjalan tanpa prompt kredensial karena installer menyimpan token di keyring dan menyiapkan `git-credential-libsecret` sebagai credential helper.
 
 ## Topologi
 
@@ -49,7 +49,7 @@ Bridge hanya hidup selama tab `chat.deepseek.com` terbuka. Saat tab terakhir dit
 
 ## Prasyarat
 
-CachyOS/Arch dengan `pacman` dan shell `fish`. Python 3.9+, Go, Node.js + npm, Git, Brave 116+. Paket dasar dipasang installer lewat pacman: `git python python-pip go curl base-devel nodejs npm inotify-tools`. Installer berhenti bila `pacman` tidak ditemukan.
+CachyOS/Arch dengan `pacman` dan shell `fish`. Python 3.9+, Go, Node.js + npm, Git, Brave 116+. Paket dasar dipasang installer lewat pacman: `git python python-pip go curl base-devel nodejs npm inotify-tools libsecret`. Installer berhenti bila `pacman` tidak ditemukan.
 
 Periksa lingkungan sebelum atau sesudah instalasi:
 
@@ -69,7 +69,7 @@ fish install.fish --extension-id <ID_EXTENSION> --github-token <TOKEN>
 
 ID extension dilihat di `brave://extensions` (mode Developer). Token GitHub berupa PAT dengan scope `repo` (format `ghp_...` atau `github_pat_...`). Scope `repo` diperlukan agar `delete_branch`, pembuatan PR, dan push berfungsi.
 
-Urutan sumber token: `--github-token` lalu variabel `EASY_VIBE_GITHUB_TOKEN` lalu file `~/.easy-vibe/github-token` lalu prompt interaktif. Menekan Enter pada prompt melewati token; server `github` tidak akan aktif.
+Urutan sumber token: `--github-token` lalu variabel `EASY_VIBE_GITHUB_TOKEN` lalu keyring (service `easy-vibe`, account `github`) lalu lokasi lama (hanya untuk migrasi). Pada terminal interaktif, installer menawarkan tempel token baru lewat input tersembunyi (tanpa token di argumen perintah); jika belum ada token, installer menanyakannya. Menekan Enter melewati token; server `github` tidak akan aktif. Token disimpan di keyring, bukan berkas di `$HOME`.
 
 Opsi installer:
 
@@ -84,13 +84,13 @@ Opsi installer:
 
 ### Yang dilakukan installer
 
-1. Membaca argumen dan menentukan token (`gh_token_resolve`), memvalidasi format, menyimpannya ke `~/.easy-vibe/github-token` (chmod 600).
-2. Menyiapkan kredensial git (`gh_setup_git_credential`): `git config --global credential.helper store`, `credential.username`, dan satu entri `github.com` di `~/.git-credentials` (chmod 600). Entri `github.com` lama dibuang; entri host lain tidak disentuh.
-3. Memasang paket dasar via pacman.
+1. Membaca argumen dan menentukan token (`gh_token_resolve`), memvalidasi format, lalu menawarkan tempel token baru lewat input tersembunyi pada terminal interaktif.
+2. Menyimpan token ke keyring (`gh_token_save`) dan menyiapkan kredensial git (`gh_setup_git_credential`): `credential.helper` diganti ke `git-credential-libsecret`, `credential.username` diatur, dan kredensial `github.com` disimpan di keyring. Helper `store` (plaintext) lama dibuang; helper lain dipertahankan.
+3. Memasang paket dasar via pacman (termasuk `libsecret`).
 4. Memasang `mcp-filesystem-server` (`go install`), memastikan `$GOPATH/bin` ada di `fish_user_paths`.
 5. Memasang global `@kieutrongthien/coding-mcp` (prefix npm `~/.npm-global`), lalu `coding-mcp init` pada root. Jika direktori root yang tertulis di skrip tidak ada, installer memakai `$HOME`. Root tambahan: `~/.cargo` dan `~/.easy-vibe` bila ada.
 6. Memasang global `github-mcp-server-kosta`; binary lama `github-mcp-server` dihapus bila ada.
-7. Clone `ranggaas6/web-mcp-bridge` ke `~/.easy-vibe/web-mcp-bridge` (token dipakai di URL clone, lalu remote dikembalikan ke HTTPS polos), mengatur `credential.helper store` pada level repo, membuat venv di `~/.easy-vibe/venv`, memasang `server/requirements.txt`. Lalu `coding-mcp init` untuk folder bridge.
+7. Clone `ranggaas6/web-mcp-bridge` ke `~/.easy-vibe/web-mcp-bridge` (token dipakai di URL clone, lalu remote dikembalikan ke HTTPS polos), menghapus sisa helper `store` (plaintext) pada level repo bila ada, membuat venv di `~/.easy-vibe/venv`, memasang `server/requirements.txt`. Lalu `coding-mcp init` untuk folder bridge.
 8. Menulis manifest native host ke folder Brave dan menyalin host serta watcher ke `~/.easy-vibe/native-host/`.
 9. Memasang `mcp-audit` (clone `firatmio/mcp-audit-proxy`, `go build`) dan menyalin `audit-brief.py`. Jika `go` tidak ada atau build gagal, tahap ini dilewati dan server berjalan tanpa perekam.
 10. Menulis `server/servers.json` (path absolut, chmod 600) dan launcher `~/.easy-vibe/start-easy-vibe.fish`.
@@ -111,8 +111,8 @@ Log native host: `~/.easy-vibe/native-host.log`.
 
 | Path | Isi |
 |---|---|
-| `~/.easy-vibe/github-token` | PAT (chmod 600), dipakai server `github` lewat env |
-| `~/.git-credentials` | Entri `github.com` untuk `credential.helper store` (chmod 600), dipakai git CLI |
+| Keyring sistem (service `easy-vibe`, account `github`) | PAT GitHub; dibaca server `github` lewat `~/.easy-vibe/bin/github-mcp-wrapper` dan git CLI lewat `git-credential-libsecret` |
+| `~/.easy-vibe/bin/github-mcp-wrapper` | Wrapper yang mengambil token dari keyring saat server `github` start (tanpa token di berkas) |
 | `~/.easy-vibe/web-mcp-bridge/` | Clone fork bridge dan `server/servers.json` |
 | `~/.easy-vibe/venv/` | Python venv bridge |
 | `~/.easy-vibe/native-host/` | `easy-vibe-host`, `easy-vibe-watcher` |
@@ -142,16 +142,17 @@ Ringkas:
 
 Detail, aturan penghapusan, hasil uji, dan batasan: [docs/opsi-b.md](docs/opsi-b.md).
 
-## Push non-interaktif (credential.helper store)
+## Push non-interaktif (credential.helper libsecret)
 
-`git push` dari `coding-mcp` berjalan sebagai subprocess tanpa TTY. Tanpa helper, git gagal dengan `fatal: could not read Username for 'https://github.com': No such device or address`. Installer menyiapkan `credential.helper store` (global dan pada repo bridge) sehingga git membaca `~/.git-credentials`.
+`git push` dari `coding-mcp` berjalan sebagai subprocess tanpa TTY. Tanpa helper, git gagal dengan `fatal: could not read Username for 'https://github.com': No such device or address`. Installer menyimpan token di keyring (Secret Service) dan menyiapkan `git-credential-libsecret` sebagai `credential.helper` global, sehingga git membaca kredensial dari keyring tanpa berkas plaintext.
 
 Catatan:
 
-- PAT tersimpan **plaintext** di `~/.git-credentials` (konsekuensi standar `credential.helper store`), dengan chmod 600.
+- PAT tersimpan di keyring sistem, bukan di `~/.git-credentials`. Instalasi lama dimigrasikan otomatis dan sisa plaintext dibersihkan.
+- Keyring harus aktif (sesi desktop dengan Secret Service, mis. KWallet atau gnome-keyring); jika tidak, token tidak tersimpan dan push non-interaktif gagal.
 - Username default di skrip adalah `ranggaas6` (nilai bawaan `gh_setup_git_credential` di `scripts/github-auth.fish`); ganti jika memakai akun lain.
 - Remote repo memakai HTTPS polos tanpa token di URL.
-- Uninstaller menghapus hanya entri `github.com` dari `~/.git-credentials`; entri host lain dipertahankan. Konfigurasi `git config --global credential.helper` tidak diubah uninstaller.
+- Uninstaller menghapus item keyring `easy-vibe/github`, kredensial `github.com` di helper libsecret, dan sisa entri `github.com` di `~/.git-credentials`; entri host lain dipertahankan. Konfigurasi `git config --global credential.helper` tidak diubah uninstaller.
 
 ## Repo baru terdeteksi otomatis
 
@@ -212,7 +213,7 @@ fish uninstall.fish --dry-run
 fish uninstall.fish
 ```
 
-Yang dibersihkan: artefak di `manifest.txt` (manifest dan skrip native host, paket npm global `@kieutrongthien/coding-mcp` dan `github-mcp-server-kosta`), manifest native host di semua lokasi Brave, `bridge.pid`, `watcher.pid`, `native-host.log`, layanan systemd pengguna terkait, proses (`easy-vibe-watcher`, `audit-brief.py`, `mcp-audit`, `mcp_ws_bridge.py`, `coding-mcp`, `github-mcp-server-kosta`, `mcp-filesystem-server`, `easy-vibe-host`), root tambahan di registry `coding-mcp`, `~/.coding-mcp`, entri `github.com` di `~/.git-credentials`, direktori `~/.easy-vibe` (termasuk `github-token`), dan entri `$GOPATH/bin` di `fish_user_paths`.
+Yang dibersihkan: artefak di `manifest.txt` (manifest dan skrip native host, paket npm global `@kieutrongthien/coding-mcp` dan `github-mcp-server-kosta`), manifest native host di semua lokasi Brave, `bridge.pid`, `watcher.pid`, `native-host.log`, layanan systemd pengguna terkait, proses (`easy-vibe-watcher`, `audit-brief.py`, `mcp-audit`, `mcp_ws_bridge.py`, `coding-mcp`, `github-mcp-server-kosta`, `mcp-filesystem-server`, `easy-vibe-host`), root tambahan di registry `coding-mcp`, `~/.coding-mcp`, item keyring `easy-vibe/github`, entri `github.com` di helper libsecret dan sisa di `~/.git-credentials`, direktori `~/.easy-vibe`, dan entri `$GOPATH/bin` di `fish_user_paths`.
 
 Opsi: `--dry-run`, `--with-tools`, `--with-gitdesktop` (sisa kompatibilitas), `--full` (juga paket pacman dasar, dengan konfirmasi), `--yes`.
 
@@ -225,7 +226,7 @@ Opsi: `--dry-run`, `--with-tools`, `--with-gitdesktop` (sisa kompatibilitas), `-
 | filesystem Connection error | Path absolut di `servers.json` salah |
 | github Connection error | Token kosong atau tidak valid; jalankan installer dengan `--github-token` |
 | `delete_branch` / push gagal 403 | Token tidak punya scope `repo` |
-| `could not read Username for 'https://github.com'` | `credential.helper store` belum aktif; jalankan ulang installer dengan token, atau periksa `git config --global credential.helper` dan `~/.git-credentials` |
+| `could not read Username for 'https://github.com'` | Helper libsecret atau keyring belum aktif; jalankan ulang installer dengan token, periksa `git config --global --get-all credential.helper`, dan pastikan Secret Service (KWallet atau gnome-keyring) berjalan |
 | Repo tidak ada di `list_projects` | Panggil `refresh_project_index`; repo harus satu level di bawah root; lihat Opsi B |
 | Repo baru tidak terdeteksi | Cek `watcher.pid` dan `inotifywait` |
 | Watcher mati `max_user_watches` | Tingkatkan `fs.inotify.max_user_watches` |
@@ -234,7 +235,7 @@ Opsi: `--dry-run`, `--with-tools`, `--with-gitdesktop` (sisa kompatibilitas), `-
 
 ## Keamanan
 
-`servers.json` dan `~/.easy-vibe/github-token` dan `~/.git-credentials` memuat token GitHub, jadi dibuat chmod 600. Jangan commit file-file itu. Batasi direktori tool. Jangan kirim kredensial ke chat. Setujui operasi destruktif secara manual. Native host hanya menerima pesan dari extension dengan ID terdaftar. Log audit berisi argumen panggilan tool, jadi perlakukan sebagai data sensitif. Lihat [docs/keamanan.md](docs/keamanan.md) dan [docs/privasi.md](docs/privasi.md).
+Token GitHub disimpan di keyring sistem, bukan di `servers.json` atau berkas di `$HOME`; `servers.json` tetap chmod 600. Jangan commit berkas konfigurasi lokal. Batasi direktori tool. Jangan kirim kredensial ke chat. Setujui operasi destruktif secara manual. Native host hanya menerima pesan dari extension dengan ID terdaftar. Log audit berisi argumen panggilan tool, jadi perlakukan sebagai data sensitif. Lihat [docs/keamanan.md](docs/keamanan.md) dan [docs/privasi.md](docs/privasi.md).
 
 ## Dokumentasi lanjutan
 
