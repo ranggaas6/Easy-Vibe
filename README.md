@@ -49,7 +49,7 @@ Bridge hanya hidup selama tab `chat.deepseek.com` terbuka. Saat tab terakhir dit
 
 ## Prasyarat
 
-CachyOS/Arch dengan `pacman` dan shell `fish`. Python 3.9+, Go, Node.js + npm, Git, Brave 116+. Paket dasar dipasang installer lewat pacman: `git python python-pip go curl base-devel nodejs npm inotify-tools libsecret`. Installer berhenti bila `pacman` tidak ditemukan.
+CachyOS/Arch dengan `pacman` dan shell `fish`. Python 3.9+, Go, Node.js + npm, Git, Brave 116+. Paket dasar dipasang installer lewat pacman: `git python python-pip go curl base-devel nodejs npm inotify-tools libsecret llvm`. Installer berhenti bila `pacman` tidak ditemukan.
 
 Periksa lingkungan sebelum atau sesudah instalasi:
 
@@ -96,7 +96,7 @@ Opsi installer:
 10. Menulis `server/servers.json` (path absolut, chmod 600) dan launcher `~/.easy-vibe/start-easy-vibe.fish`.
 11. Menulis `manifest.txt` untuk uninstaller.
 
-Server `coding-mcp` di `servers.json` mendapat `env.ALLOWED_COMMANDS` = `cargo,rustc,git,pgrep,node,npm,pacman,busctl,fish,diff,python3`. Token GitHub tidak ditulis ke `servers.json`: entri `github` memakai wrapper yang mengambil token dari keyring.
+Server `coding-mcp` di `servers.json` mendapat `env.ALLOWED_COMMANDS` = `cargo,rustc,git,pgrep,node,npm,pacman,busctl,fish,diff,python3,llvm,llvm-mc`. Token GitHub tidak ditulis ke `servers.json`: entri `github` memakai wrapper yang mengambil token dari keyring.
 
 ### Setelah instalasi
 

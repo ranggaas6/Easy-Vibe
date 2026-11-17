@@ -207,7 +207,7 @@ end
 if test $FULL -eq 1
   say "== Paket pacman dasar =="
   if test (count $PKGS_TO_REMOVE) -eq 0
-    for p in git python python-pip go curl base-devel nodejs npm inotify-tools
+    for p in git python python-pip go curl base-devel nodejs npm inotify-tools llvm
       if pacman -Qi $p >/dev/null 2>&1; set -a PKGS_TO_REMOVE $p; end
     end
   end

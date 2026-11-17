@@ -25,7 +25,7 @@ else
     set -g exit_code 1
 end
 echo '== Paket dasar =='
-for p in git python python-pip go curl base-devel nodejs npm inotify-tools libsecret
+for p in git python python-pip go curl base-devel nodejs npm inotify-tools libsecret llvm
     ckp $p
 end
 echo '== Perangkat =='
