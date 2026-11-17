@@ -10,7 +10,6 @@ set -l INSTALL_DIR "$HOME/.easy-vibe"
 set -l BRIDGE_DIR "$INSTALL_DIR/web-mcp-bridge"
 set -l VENV_DIR "$INSTALL_DIR/venv"
 set -l MANIFEST "$INSTALL_DIR/manifest.txt"
-set -l TOKEN_FILE "$INSTALL_DIR/github-token"
 set -l CLEAN 0
 set -l FORCE 0
 set -l CLI_TOKEN ""

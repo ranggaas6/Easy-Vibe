@@ -25,12 +25,28 @@ else
     set -g exit_code 1
 end
 echo '== Paket dasar =='
-for p in git python python-pip go curl base-devel nodejs npm
+for p in git python python-pip go curl base-devel nodejs npm inotify-tools libsecret
     ckp $p
 end
 echo '== Perangkat =='
 for c in git python go node npm coding-mcp mcp-filesystem-server
     ck $c
+end
+echo '== Keyring token GitHub =='
+if command -v secret-tool >/dev/null 2>&1
+    printf '[OK]   secret-tool: %s\n' (command -v secret-tool)
+    if timeout 10 secret-tool lookup service easy-vibe account github >/dev/null 2>&1
+        printf '[OK]   token GitHub ada di keyring\n'
+    else
+        printf '[PERINGATAN] token GitHub belum ada di keyring (server github tidak aktif)\n'
+    end
+else
+    printf '[PERINGATAN] secret-tool tidak ditemukan; pasang libsecret agar token bisa disimpan di keyring\n'
+end
+if test -x "$HOME/.easy-vibe/bin/github-mcp-wrapper"
+    printf '[OK]   github-mcp-wrapper ada\n'
+else
+    printf '[PERINGATAN] github-mcp-wrapper belum ada: %s\n' "$HOME/.easy-vibe/bin/github-mcp-wrapper"
 end
 echo '== Instalasi Easy-Vibe =='
 set -l D "$HOME/.easy-vibe"
