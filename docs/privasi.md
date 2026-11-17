@@ -41,7 +41,7 @@ Ketika DeepSeek membaca kode melalui `filesystem`, atau memeriksa riwayat Git me
 - Konfigurasi
 - Hasil tool yang diberikan kepada DeepSeek, termasuk hasil server `github` (isi repo, PR, issue)
 
-Catatan lokal (tidak dikirim ke DeepSeek kecuali dibaca lewat tool): log panggilan `~/.easy-vibe/audit/*.jsonl` dan `~/.easy-vibe/brief.txt` berisi argumen panggilan tool dan status Git proyek. `~/.easy-vibe/github-token` dan `~/.git-credentials` menyimpan PAT plaintext (chmod 600). Jangan biarkan AI membaca berkas-berkas ini.
+Catatan lokal (tidak dikirim ke DeepSeek kecuali dibaca lewat tool): log panggilan `~/.easy-vibe/audit/*.jsonl` dan `~/.easy-vibe/brief.txt` berisi argumen panggilan tool dan status Git proyek. PAT GitHub disimpan di keyring sistem (Secret Service), bukan sebagai berkas plaintext di `$HOME`. Sisa berkas token lama (`~/.easy-vibe/github-token`, `~/.git-credentials`) dibersihkan installer. Jangan biarkan AI membaca log audit dan `brief.txt` kecuali perlu.
 
 ## Kebijakan privasi DeepSeek
 

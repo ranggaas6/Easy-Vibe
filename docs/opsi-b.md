@@ -20,12 +20,12 @@ Status bukti (lihat bagian hasil uji): penyebab pasti kegagalan lama **belum ter
 
 `git push` dari `coding-mcp` berjalan sebagai subprocess tanpa TTY. Installer menyiapkan:
 
-- `git config --global credential.helper store` dan `credential.username`.
-- Entri `https://<username>:<PAT>@github.com` di `~/.git-credentials` (chmod 600).
-- Pada repo bridge: `credential.helper store` dan `credential.username` di level repo.
+- `git config --global credential.helper` diarahkan ke `git-credential-libsecret` dan `credential.username` diatur.
+- Kredensial `github.com` (username dan PAT) disimpan di keyring sistem (Secret Service), bukan di `~/.git-credentials`.
+- Pada repo bridge: sisa helper `store` (plaintext) di level repo dihapus bila ada; repo memakai helper global.
 - Remote berupa HTTPS polos (tanpa token di URL).
 
-Koreksi atas catatan lama yang menyebut Git belum punya akses: pada pemeriksaan terakhir, `~/.gitconfig` berisi `helper = store` dan `username = ranggaas6`, dan `.git/config` repo Easy-Vibe memakai remote `https://github.com/ranggaas6/Easy-Vibe` (polos). Push `coding_mcp.git_push` terbukti berhasil pada uji di bawah. Isi `~/.git-credentials` sengaja tidak dibuka.
+Catatan: pada pengujian awal (sebelum migrasi ke keyring), `~/.gitconfig` memakai helper `store`. Installer sekarang menggantinya dengan `git-credential-libsecret`. Remote repo Easy-Vibe memakai `https://github.com/ranggaas6/Easy-Vibe` (polos), dan push `coding_mcp.git_push` terbukti berhasil. Kredensial tidak perlu dibuka untuk memverifikasi hal ini.
 
 Tanpa helper, error yang muncul: `fatal: could not read Username for 'https://github.com': No such device or address`.
 

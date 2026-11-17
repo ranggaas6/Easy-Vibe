@@ -18,7 +18,7 @@ Urutan kerja antara AI dan manusia menggunakan `coding-mcp`, `filesystem`, dan `
 | 10 | DeepSeek | Verifikasi di remote | `github_list_contents`, `github_get_file_content` |
 | 11 | DeepSeek | PR, issue, release, hapus branch uji | server `github` |
 
-Manusia memegang keputusan pada langkah 5 dan 8. Push berhasil tanpa prompt kredensial karena installer menyiapkan `credential.helper store`.
+Manusia memegang keputusan pada langkah 5 dan 8. Push berhasil tanpa prompt kredensial karena installer menyimpan token di keyring dan menyiapkan `git-credential-libsecret` sebagai `credential.helper`.
 
 ## Repo baru atau belum terdaftar
 
@@ -62,7 +62,7 @@ Jika `audit-brief` aktif, baca `~/.easy-vibe/brief.txt`: berisi 10 panggilan ter
 ## Penanganan kegagalan
 
 - `coding-mcp` tidak menemukan repo: panggil `refresh_project_index`.
-- `git_push` meminta username: periksa `credential.helper store` dan `~/.git-credentials`.
+- `git_push` meminta username: periksa `git config --global --get-all credential.helper` (harus memuat `git-credential-libsecret`) dan pastikan Secret Service (keyring) aktif.
 - `run_command_safe` menolak `git`: gunakan tool `git_*`.
 - `filesystem` gagal: cek direktori ada dan punya izin. Jangan memakai `filesystem.delete_file` untuk folder.
 - Bridge tidak menyala: cek `~/.easy-vibe/native-host.log` dan manifest native host.

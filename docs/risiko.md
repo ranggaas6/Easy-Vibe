@@ -14,7 +14,7 @@ Daftar risiko arsitektur vibe coding lokal Easy-Vibe beserta mitigasinya.
 | Lampiran panjang melebihi konteks | Bridge mengirim teks utuh | Panggilan gagal | Baca bertahap, batasi ukuran |
 | Kredensial terbaca tool | Akses filesystem terlalu luas | Kompromi akun | Batasi direktori, blokir .env dan SSH |
 | Pemicu native host gagal | allowed_origins salah | Bridge tidak menyala | Jalankan installer dengan --extension-id yang benar |
-| PAT plaintext di disk | `~/.git-credentials`, `~/.easy-vibe/github-token`, `servers.json` | Kompromi akun GitHub bila disk atau tool membacanya | chmod 600, scope minimal, fine-grained PAT, jangan minta AI membaca berkas itu, rotasi token berkala |
+| PAT GitHub di keyring | Keyring sistem (Secret Service), memori proses server `github` dan wrapper | Kompromi akun GitHub bila sesi desktop terbuka dan proses lain membaca keyring, atau bila sisa berkas plaintext lama masih ada | Token tidak lagi disimpan sebagai berkas di `$HOME`; scope minimal, fine-grained PAT, rotasi token berkala, pastikan sisa `~/.git-credentials` dan `~/.easy-vibe/github-token` sudah terhapus |
 | Operasi tulis remote lewat server github | Token scope `repo` | PR, merge, atau hapus branch yang tidak diinginkan | Persetujuan manual per panggilan, batasi PAT ke repo yang perlu |
 | Push langsung ke main | `git_push` non-interaktif | Perubahan terdorong tanpa tinjauan | Review diff sebelum commit, setujui push secara manual, uji di branch (`set_upstream`) |
 | Penghapusan folder salah sasaran | `coding_mcp.delete_file` dengan `path: "."` | Repo asli terhapus | Verifikasi `get_project`/`absolute_path`, hanya hapus salinan buatan sesi, daftarkan root agar salinan tidak perlu |
