@@ -96,7 +96,7 @@ Opsi installer:
 10. Menulis `server/servers.json` (path absolut, chmod 600) dan launcher `~/.easy-vibe/start-easy-vibe.fish`.
 11. Menulis `manifest.txt` untuk uninstaller.
 
-Server `coding-mcp` di `servers.json` mendapat `env.ALLOWED_COMMANDS` = `cargo,rustc,git,pgrep,node,npm,pacman,busctl,fish`. Token GitHub tidak ditulis ke `servers.json`: entri `github` memakai wrapper yang mengambil token dari keyring.
+Server `coding-mcp` di `servers.json` mendapat `env.ALLOWED_COMMANDS` = `cargo,rustc,git,pgrep,node,npm,pacman,busctl,fish,diff,python3`. Token GitHub tidak ditulis ke `servers.json`: entri `github` memakai wrapper yang mengambil token dari keyring.
 
 ### Setelah instalasi
 
