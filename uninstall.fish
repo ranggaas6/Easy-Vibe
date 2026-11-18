@@ -71,6 +71,13 @@ if test -f "$MANIFEST"
         end
       case coding-mcp-root
         set -a CODING_ROOTS $parts[2]
+      case coding-mcp-allowlist
+        # Allowlist (termasuk sed, grep) hanya ada di servers.json dalam $DIR; ikut terhapus bersama direktori instalasi.
+        if test $DRY -eq 1
+          say "akan menghapus allowlist coding-mcp (ikut servers.json): $parts[2]"
+        else
+          say "allowlist coding-mcp dicabut (servers.json dihapus bersama $DIR): $parts[2]"
+        end
       case pacman-pkg
         set -a PKGS_TO_REMOVE $parts[2]
       case keyring-item

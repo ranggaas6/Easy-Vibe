@@ -88,7 +88,7 @@ set -l LAUNCHER_PORT 8198
 set -l CODING_PORT 8190
 set -l GITHUB_PORT 8191
 set -l FS_PORT 8192
-set -l ALLOWED_CMDS "cargo,rustc,git,pgrep,node,npm,pacman,busctl,fish,diff,python3,llvm,llvm-mc"
+set -l ALLOWED_CMDS "cargo,rustc,git,pgrep,node,npm,pacman,busctl,fish,diff,python3,llvm,llvm-mc,sed,grep"
 if not command -v pacman >/dev/null 2>&1; printf '[GAGAL] pacman tidak ditemukan\n' >&2; exit 1; end
 if test $CLEAN -eq 1
   if test -f "$SCRIPT_DIR/uninstall.fish"
@@ -119,6 +119,7 @@ end
 set -g manifest_lines "installed_at "(date -Iseconds)
 set -g manifest_lines $manifest_lines "bridge_source $BRIDGE_REPO"
 set -g manifest_lines $manifest_lines "extension-id $EXT_ID"
+set -g manifest_lines $manifest_lines "coding-mcp-allowlist $ALLOWED_CMDS"
 if test "$TOKEN_IN_VAULT" = 1
   set -g manifest_lines $manifest_lines "keyring-item easy-vibe/github"
   set -g manifest_lines $manifest_lines "git-credentials-file $HOME/.git-credentials"
