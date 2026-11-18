@@ -35,7 +35,7 @@ function setup_npm_prefix
 end
 function install_prasyarat
     ib_langkah "Memasang prasyarat dasar"
-    set -l paket git python python-pip go curl base-devel nodejs npm inotify-tools libsecret llvm
+    set -l paket git python python-pip go curl base-devel nodejs npm inotify-tools libsecret llvm clang gcc
     set -l newly_installed
     for p in $paket
         if not pacman -Qi $p >/dev/null 2>&1

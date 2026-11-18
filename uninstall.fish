@@ -72,7 +72,7 @@ if test -f "$MANIFEST"
       case coding-mcp-root
         set -a CODING_ROOTS $parts[2]
       case coding-mcp-allowlist
-        # Allowlist (termasuk sed, grep) hanya ada di servers.json dalam $DIR; ikut terhapus bersama direktori instalasi.
+        # Allowlist (termasuk sed, grep, clang, clang++, gcc, g++) hanya ada di servers.json dalam $DIR; ikut terhapus bersama direktori instalasi.
         if test $DRY -eq 1
           say "akan menghapus allowlist coding-mcp (ikut servers.json): $parts[2]"
         else
@@ -214,7 +214,7 @@ end
 if test $FULL -eq 1
   say "== Paket pacman dasar =="
   if test (count $PKGS_TO_REMOVE) -eq 0
-    for p in git python python-pip go curl base-devel nodejs npm inotify-tools llvm
+    for p in git python python-pip go curl base-devel nodejs npm inotify-tools libsecret llvm clang gcc
       if pacman -Qi $p >/dev/null 2>&1; set -a PKGS_TO_REMOVE $p; end
     end
   end
